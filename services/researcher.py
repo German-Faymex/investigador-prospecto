@@ -41,49 +41,154 @@ class ResearchService:
             print(f"[Research] Investigando: {name} @ {company}")
             items = await self.orchestrator.search_all(name, company, role)
 
-            if not items:
-                result.error = "No se encontraron resultados en ninguna fuente"
-                result.score = 0
-                return result
+            if items:
+                # 2. Guardar fuentes raw
+                result.raw_sources = [
+                    {"url": it.url, "title": it.title, "source": it.source}
+                    for it in items if it.url
+                ]
 
-            # 2. Guardar fuentes raw
-            result.raw_sources = [
-                {"url": it.url, "title": it.title, "source": it.source}
-                for it in items if it.url
-            ]
+                # 3. Verificar hechos cruzando fuentes
+                verified_facts = self.verifier.verify(items)
 
-            # 3. Verificar hechos cruzando fuentes
-            verified_facts = self.verifier.verify(items)
+                if verified_facts:
+                    # 4. Construir contexto para el LLM con datos scrapeados
+                    context = self._build_llm_context(name, company, role, verified_facts)
+                    system_prompt = self._load_prompt("research_analyzer.md")
+                    llm_response = await self.llm.complete(system_prompt, context)
+                    result.llm_used = llm_response.model_used
 
-            if not verified_facts:
-                result.error = "No se pudieron verificar datos suficientes"
-                result.score = 5
-                return result
+                    parsed = self._parse_llm_response(llm_response.content)
+                    if parsed:
+                        result.persona = parsed.get("persona", {})
+                        result.empresa = parsed.get("empresa", {})
+                        result.hallazgos = parsed.get("hallazgos", [])
+                        result.hallazgo_tipo = parsed.get("hallazgo_tipo", "D")
+                        result.score = parsed.get("score", 0)
+                        result.cargo_descubierto = parsed.get("cargo_descubierto", role)
+                        return result
 
-            # 4. Construir contexto para el LLM (solo facts verificados/parciales)
-            context = self._build_llm_context(name, company, role, verified_facts)
-
-            # 5. Cargar prompt y enviar al LLM
-            system_prompt = self._load_prompt("research_analyzer.md")
-            llm_response = await self.llm.complete(system_prompt, context)
-            result.llm_used = llm_response.model_used
-
-            # 6. Parsear respuesta del LLM
-            parsed = self._parse_llm_response(llm_response.content)
-            if parsed:
-                result.persona = parsed.get("persona", {})
-                result.empresa = parsed.get("empresa", {})
-                result.hallazgos = parsed.get("hallazgos", [])
-                result.hallazgo_tipo = parsed.get("hallazgo_tipo", "D")
-                result.score = parsed.get("score", 0)
-                result.cargo_descubierto = parsed.get("cargo_descubierto", role)
-            else:
-                result.error = "No se pudo parsear la respuesta del LLM"
-                result.score = 10
+            # Fallback: si no hay datos de scraping, investigar directo con LLM
+            print("[Research] Sin datos de scraping, usando LLM directo como fallback")
+            result = await self._llm_direct_research(name, company, role)
 
         except Exception as e:
             result.error = str(e)
             print(f"[Research] Error: {e}")
+
+        return result
+
+    async def _llm_direct_research(self, name: str, company: str, role: str = "") -> ResearchResult:
+        """Fallback: investigar usando solo el conocimiento del LLM (sin scraping)."""
+        from datetime import datetime, timedelta
+
+        today = datetime.now()
+        six_months_ago = today - timedelta(days=180)
+        current_date = today.strftime("%d de %B de %Y")
+        date_limit = six_months_ago.strftime("%B %Y")
+
+        system_prompt = f"""Eres un investigador experto en prospeccion B2B para Faymex, empresa chilena de suministros industriales.
+Tu tarea es investigar al prospecto usando tu conocimiento y extraer informacion ESPECIFICA y ACCIONABLE
+para personalizar un email de ventas.
+
+FECHA ACTUAL: {current_date}
+
+CONTEXTO DE NEGOCIO - FAYMEX:
+- Servicios: suministros industriales, repuestos criticos, stock local, consignacion
+- Industrias clave: Mineria (cobre), Energia, Petroleo y Gas, Manufactura
+- Clientes de referencia: CODELCO, Anglo American, Altonorte, ENAP
+- Ventaja: stock local que evita importaciones de 8-12 semanas
+
+QUE BUSCAR (en orden de prioridad):
+1. PROYECTOS NUEVOS: Nueva planta, expansion, paradas programadas, inversiones
+2. NOTICIAS RECIENTES: Contratos ganados, nuevas operaciones, crecimiento
+3. LOGROS DEL EJECUTIVO: Ascensos recientes, publicaciones, premios
+4. DESAFIOS: Problemas de mantenimiento, disponibilidad de equipos
+
+RESTRICCION DE TIEMPO:
+- SOLO informacion de los ULTIMOS 6 MESES (desde {date_limit})
+- Si la informacion es antigua o generica, asigna hallazgo_tipo="D"
+
+Responde SIEMPRE en formato JSON con esta estructura exacta. IMPORTANTE: se DETALLADO y EXTENSO en cada campo, no resumas.
+
+{{
+    "persona": {{
+        "nombre": "Nombre completo del prospecto",
+        "cargo": "Cargo actual completo con area de responsabilidad",
+        "empresa": "Empresa actual",
+        "linkedin": "URL de LinkedIn si la conoces (formato: https://linkedin.com/in/...)",
+        "trayectoria": "Descripcion DETALLADA de su trayectoria profesional: anos de experiencia, empresas anteriores, roles anteriores, especializaciones. Minimo 3-4 oraciones.",
+        "educacion": "Titulo profesional, universidad, postgrados si los tiene",
+        "ubicacion": "Ciudad y pais donde trabaja",
+        "intereses": "Areas de interes profesional, temas en los que se especializa",
+        "logros_recientes": ["Logro 1 con detalle", "Logro 2 con detalle"],
+        "experiencia_previa": ["Empresa anterior 1 - Cargo - Periodo", "Empresa anterior 2 - Cargo - Periodo"]
+    }},
+    "empresa": {{
+        "nombre": "Nombre completo de la empresa",
+        "industria": "Industria/sector especifico",
+        "descripcion": "Descripcion DETALLADA de la empresa: que hace, desde cuando opera, que tan grande es, cual es su posicion en el mercado. Minimo 3-4 oraciones.",
+        "productos_servicios": ["Producto/servicio principal 1", "Producto/servicio 2", "Producto/servicio 3"],
+        "noticias_recientes": ["Noticia reciente 1 con fecha y detalle", "Noticia reciente 2 con fecha y detalle"],
+        "desafios_sector": ["Desafio 1 especifico del sector con contexto", "Desafio 2 con contexto"],
+        "competidores": ["Competidor 1", "Competidor 2"],
+        "ubicacion": "Sede principal y presencia geografica",
+        "presencia": "Paises o regiones donde opera",
+        "sitio_web": "URL del sitio web oficial"
+    }},
+    "hallazgos": [
+        {{
+            "content": "Hallazgo ESPECIFICO con datos concretos, cifras, fechas y contexto. Debe ser una oracion completa y detallada.",
+            "tipo": "A|B|C|D",
+            "sources": [],
+            "confidence": "partial"
+        }}
+    ],
+    "hallazgo_tipo": "A|B|C|D",
+    "score": 50,
+    "cargo_descubierto": "Cargo descubierto si no fue proporcionado"
+}}
+
+IMPORTANTE: No dejes campos vacios si puedes inferir la informacion. Se extenso y detallado en las descripciones.
+
+REGLAS DE SCORE:
+- Score 80-100: Info de los ultimos 3 meses, muy especifica
+- Score 60-79: Info de 3-6 meses, relevante
+- Score 40-59: Info generica pero actual
+- Score 0-39: Info desactualizada o no encontrada
+
+Si no tienes informacion especifica, se honesto y asigna hallazgo_tipo="D" con score bajo."""
+
+        user_prompt = f"""Investiga al siguiente prospecto usando tu conocimiento:
+
+PROSPECTO:
+- Nombre: {name}
+- Cargo: {role or 'No especificado'}
+- Empresa: {company}
+
+INSTRUCCIONES:
+1. Busca en tu conocimiento informacion ESPECIFICA sobre esta persona y empresa
+2. Prioriza noticias de inversion, expansion o nuevos proyectos
+3. Si conoces algun logro del ejecutivo, mencionalo
+4. Los hallazgos deben tener DATOS CONCRETOS, no generalidades
+5. Si no tienes informacion especifica, se honesto y asigna hallazgo_tipo="D" con score bajo
+
+Responde SOLO con el JSON estructurado, sin texto adicional."""
+
+        llm_response = await self.llm.complete(system_prompt, user_prompt)
+        result = ResearchResult(llm_used=f"{llm_response.model_used} (directo)")
+
+        parsed = self._parse_llm_response(llm_response.content)
+        if parsed:
+            result.persona = parsed.get("persona", {})
+            result.empresa = parsed.get("empresa", {})
+            result.hallazgos = parsed.get("hallazgos", [])
+            result.hallazgo_tipo = parsed.get("hallazgo_tipo", "D")
+            result.score = parsed.get("score", 0)
+            result.cargo_descubierto = parsed.get("cargo_descubierto", role)
+        else:
+            result.error = "No se pudo parsear la respuesta del LLM"
+            result.score = 10
 
         return result
 
