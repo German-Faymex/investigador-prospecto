@@ -1,167 +1,168 @@
 # Sistema SMTYKM - "Show Me That You Know Me"
 
-## Filosofia Central
+## Filosofía Central
 
-SMTYKM (Show Me That You Know Me) es una metodologia de prospeccion B2B que se basa en un principio simple pero poderoso: **antes de pedir algo, demuestra que conoces al prospecto**.
+SMTYKM (Show Me That You Know Me) es una metodología de prospección B2B que se basa en un principio simple pero poderoso: **antes de pedir algo, demuestra que conoces al prospecto**.
 
-El objetivo NO es vender en el primer email. El objetivo es **iniciar una conversacion** demostrando que hiciste tu tarea.
+El objetivo NO es vender en el primer email. El objetivo es **iniciar una conversación** demostrando que hiciste tu tarea.
 
 ### Los 4 Pilares de SMTYKM
 
-1. **Investigacion antes de contacto** - Nunca envies un email sin haber investigado al prospecto y su empresa
-2. **Personalizacion genuina** - No es poner el nombre en el saludo. Es demostrar conocimiento real de su situacion
-3. **Valor antes que venta** - Ofrece un insight, observacion o conexion antes de pedir algo
+1. **Investigación antes de contacto** - Nunca envíes un email sin haber investigado al prospecto y su empresa
+2. **Personalización genuina** - No es poner el nombre en el saludo. Es demostrar conocimiento real de su situación
+3. **Valor antes que venta** - Ofrece un insight, observación o conexión antes de pedir algo
 4. **Respeto por su tiempo** - Emails cortos, directos, sin rodeos corporativos
 
 ---
 
 ## Reglas del Asunto
 
-El asunto es el 80% de tu email. Si no lo abren, nada mas importa.
+El asunto es el 80% de tu email. Si no lo abren, nada más importa.
 
 ### Reglas Obligatorias
 
-1. **Maximo 40 caracteres** (para que se vea completo en movil)
-2. **Minusculas** (excepto nombres propios) - Parece mas personal, menos marketing
+1. **Máximo 40 caracteres** (para que se vea completo en móvil)
+2. **Minúsculas** (excepto nombres propios) - Parece más personal, menos marketing
 3. **Puntos suspensivos al final...** - Genera curiosidad, invita a abrir
-4. **Brecha de curiosidad** - El lector debe NECESITAR abrir para entender
+4. **Incluir el primer nombre del prospecto** - Personalización directa
+5. **Brecha de curiosidad** - El lector debe NECESITAR abrir para entender
 
-### Formulas de Asunto por Tipo de Hallazgo
+### Fórmulas de Asunto por Tipo de Hallazgo
 
 **Tipo A (Noticia de empresa):**
 ```
-vi lo de [evento/noticia]...
-sobre el proyecto en [lugar]...
-lo de [nombre proyecto]...
+[Nombre], vi lo de [evento/noticia]...
+[Nombre], sobre el proyecto en [lugar]...
+[Nombre], lo de [nombre proyecto]...
 ```
 
 **Tipo B (Logro del ejecutivo):**
 ```
-felicidades por [logro]...
-vi tu publicacion sobre...
-lo que dijiste de [tema]...
+[Nombre], felicidades por [logro]...
+[Nombre], vi tu publicación sobre...
+[Nombre], lo que dijiste de [tema]...
 ```
 
 **Tipo C (Tendencia de industria):**
 ```
-[desafio del sector] y ustedes...
-sobre [tendencia] en [industria]...
-una idea sobre [problema comun]...
+[Nombre], [desafío del sector] y ustedes...
+[Nombre], sobre [tendencia] en [industria]...
+[Nombre], una idea sobre [problema común]...
 ```
 
 ### Asuntos PROHIBIDOS
 
-- "Propuesta comercial para [Empresa]"
-- "Solicitud de reunion"
-- "Presentacion de servicios Faymex"
-- "Tienes 15 minutos?"
-- Cualquier cosa que suene a vendedor
+- ❌ "Propuesta comercial para [Empresa]"
+- ❌ "Solicitud de reunión"
+- ❌ "Presentación de servicios Faymex"
+- ❌ "¿Tienes 15 minutos?"
+- ❌ Cualquier cosa que suene a vendedor
 
 ---
 
-## Estructura del Email (4 Parrafos)
+## Estructura del Email (4 Párrafos)
 
-### Parrafo 1: Hook Personal (2-3 lineas)
+### Párrafo 1: Hook Personal (2-3 líneas)
 **Objetivo:** Demostrar que lo conoces. Que hiciste tu tarea.
 
 ```
-Vi que [hallazgo especifico de la investigacion].
-[Conexion o comentario genuino sobre ese hallazgo].
+Vi que [hallazgo específico de la investigación].
+[Conexión o comentario genuino sobre ese hallazgo].
 ```
 
 **Ejemplos buenos:**
-- "Vi que acaban de inaugurar la planta en Antofagasta. 47,000 m2 es un proyecto mayor."
-- "Lei tu comentario en LinkedIn sobre los desafios de mantenimiento predictivo. Totalmente de acuerdo."
-- "Note que estan expandiendo operaciones en el norte. El tema logistico debe ser interesante."
+- "Vi que acaban de inaugurar la planta en Antofagasta. 47,000 m² es un proyecto mayor."
+- "Leí tu comentario en LinkedIn sobre los desafíos de mantenimiento predictivo. Totalmente de acuerdo."
+- "Noté que están expandiendo operaciones en el norte. El tema logístico debe ser interesante."
 
 **Ejemplos malos:**
-- "Espero que este email te encuentre bien."
-- "Mi nombre es Gustavo y trabajo en Faymex."
-- "Me gustaria presentarte nuestra empresa."
+- ❌ "Espero que este email te encuentre bien."
+- ❌ "Mi nombre es Gustavo y trabajo en Faymex."
+- ❌ "Me gustaría presentarte nuestra empresa."
 
-### Parrafo 2: El Dolor (2-3 lineas)
+### Párrafo 2: El Dolor (2-3 líneas)
 **Objetivo:** Tocar un problema real que probablemente tienen.
 
 ```
-Imagino que con [situacion del hallazgo],
-[problema/desafio tipico que enfrentan].
+Imagino que con [situación del hallazgo],
+[problema/desafío típico que enfrentan].
 ```
 
 **Ejemplos buenos:**
-- "Con una operacion de ese tamano, mantener el inventario de repuestos criticos debe ser un equilibrio complejo."
+- "Con una operación de ese tamaño, mantener el inventario de repuestos críticos debe ser un equilibrio complejo."
 - "Expandir al norte siempre trae el tema de proveedores locales vs. traer todo desde Santiago."
 - "El mantenimiento preventivo en plantas 24/7 es un dolor de cabeza cuando los repuestos tienen 8 semanas de lead time."
 
 **Ejemplos malos:**
-- "Las empresas como la suya necesitan soluciones de calidad."
-- "Sabemos que el mantenimiento es importante para ustedes."
-- "Muchas empresas enfrentan desafios similares."
+- ❌ "Las empresas como la suya necesitan soluciones de calidad."
+- ❌ "Sabemos que el mantenimiento es importante para ustedes."
+- ❌ "Muchas empresas enfrentan desafíos similares."
 
-### Parrafo 3: Credibilidad Sutil (2-3 lineas)
+### Párrafo 3: Credibilidad Sutil (1-2 líneas)
 **Objetivo:** Mostrar que puedes ayudar SIN hacer pitch.
 
 ```
-Trabajamos con [empresa similar o del sector] en [situacion parecida].
+Trabajamos con [empresa similar o del sector] en [situación parecida].
 [Resultado o aprendizaje relevante, sin presumir].
 ```
 
 **Ejemplos buenos:**
-- "Hace poco ayudamos a una minera en Atacama a reducir su inventario de emergencia un 30% con un sistema de consignacion."
-- "Tenemos stock local de las lineas que tipicamente tienen 12 semanas de importacion."
+- "Hace poco ayudamos a una minera en Atacama a reducir su inventario de emergencia un 30% con un sistema de consignación."
+- "Tenemos stock local de las líneas que típicamente tienen 12 semanas de importación."
 - "Varias plantas del sector nos usan como backup cuando el proveedor original falla en plazos."
 
 **Ejemplos malos:**
-- "Faymex es lider en suministros industriales con 20 anos de experiencia."
-- "Tenemos los mejores precios y calidad del mercado."
-- "Nuestros clientes estan muy satisfechos con nuestro servicio."
+- ❌ "Faymex es líder en suministros industriales con 20 años de experiencia."
+- ❌ "Tenemos los mejores precios y calidad del mercado."
+- ❌ "Nuestros clientes están muy satisfechos con nuestro servicio."
 
-### Parrafo 4: CTA (Call to Action) (1-2 lineas)
-**Objetivo:** Cerrar con una pregunta o invitacion suave.
+### Párrafo 4: CTA (Call to Action) (1-2 líneas)
+**Objetivo:** Cerrar con una pregunta o invitación suave.
 
 ### Reglas del CTA
 
-1. **Maximo 15 palabras**
+1. **Máximo 15 palabras**
 2. **Debe tocar el dolor mencionado**
-3. **NUNCA pedir reunion directamente**
-4. **Formato pregunta es mejor que afirmacion**
+3. **NUNCA pedir reunión directamente**
+4. **Formato pregunta es mejor que afirmación**
 
-**Formulas de CTA:**
+**Fórmulas de CTA:**
 ```
-Tienen resuelto el tema de [dolor mencionado]?
-Como estan manejando [problema especifico]?
-Les sirve que les mande [algo de valor: lista, info, caso]?
-Si [situacion], me encantaria compartirte [valor].
+¿Tienen resuelto el tema de [dolor mencionado]?
+¿Cómo están manejando [problema específico]?
+¿Les sirve que les mande [algo de valor: lista, info, caso]?
+Si [situación], me encantaría compartirte [valor].
 ```
 
 **Ejemplos buenos:**
-- "Tienen resuelto el tema de repuestos criticos para la planta nueva?"
-- "Como estan manejando el lead time de importaciones?"
-- "Si les sirve, puedo mandarte la lista de lo que tipicamente stockeamos para plantas similares."
+- "¿Tienen resuelto el tema de repuestos críticos para la planta nueva?"
+- "¿Cómo están manejando el lead time de importaciones?"
+- "Si les sirve, puedo mandarte la lista de lo que típicamente stockeamos para plantas similares."
 
 **Ejemplos malos:**
-- "Tienes 15 minutos para una llamada?"
-- "Me encantaria agendar una reunion para presentarte nuestros servicios."
-- "Cuando podemos coordinar una visita?"
-- "Quedo atento a tu respuesta."
+- ❌ "¿Tienes 15 minutos para una llamada?"
+- ❌ "Me encantaría agendar una reunión para presentarte nuestros servicios."
+- ❌ "¿Cuándo podemos coordinar una visita?"
+- ❌ "Quedo atento a tu respuesta."
 
 ---
 
 ## Buyer Personas de Faymex
 
 ### Persona 1: Jefe/Gerente de Mantenimiento
-**Cargo tipico:** Jefe de Mantenimiento, Gerente de Mantenimiento, Superintendente de Mantencion
+**Cargo típico:** Jefe de Mantenimiento, Gerente de Mantenimiento, Superintendente de Mantención
 
 **Sus dolores:**
 - Equipos parados por falta de repuestos
-- Lead times largos de importacion (8-12 semanas)
-- Inventario de repuestos costoso y dificil de justificar
-- Presion por disponibilidad de equipos (OEE, uptime)
+- Lead times largos de importación (8-12 semanas)
+- Inventario de repuestos costoso y difícil de justificar
+- Presión por disponibilidad de equipos (OEE, uptime)
 - Proveedores que no cumplen plazos
 
-**Que le importa:**
+**Qué le importa:**
 - Disponibilidad y tiempos de entrega
-- Stock local de repuestos criticos
-- Respuesta rapida ante emergencias
+- Stock local de repuestos críticos
+- Respuesta rápida ante emergencias
 - Historial y trazabilidad de compras
 
 **Gancho efectivo:**
@@ -170,91 +171,152 @@ Si [situacion], me encantaria compartirte [valor].
 - Proyectos de mejora de disponibilidad
 
 ### Persona 2: Jefe/Gerente de Proyectos
-**Cargo tipico:** Jefe de Proyectos, Gerente de Proyectos, Project Manager, Ingeniero de Proyectos
+**Cargo típico:** Jefe de Proyectos, Gerente de Proyectos, Project Manager, Ingeniero de Proyectos
 
 **Sus dolores:**
 - Presupuestos ajustados con alcance creciente
 - Proveedores que no cotizan a tiempo
 - Plazos de entrega que afectan cronograma
 - Necesidad de consolidar proveedores
-- Documentacion tecnica incompleta
+- Documentación técnica incompleta
 
-**Que le importa:**
+**Qué le importa:**
 - Cumplimiento de plazos comprometidos
-- Cotizaciones rapidas y completas
+- Cotizaciones rápidas y completas
 - Capacidad de suministro integral
-- Soporte tecnico en especificaciones
+- Soporte técnico en especificaciones
 
 **Gancho efectivo:**
 - Nuevos proyectos anunciados
 - Expansiones o construcciones
-- Licitaciones publicas
+- Licitaciones públicas
 
 ### Persona 3: Jefe/Gerente de Compras/Abastecimiento
-**Cargo tipico:** Jefe de Compras, Gerente de Abastecimiento, Procurement Manager, Supply Chain Manager
+**Cargo típico:** Jefe de Compras, Gerente de Abastecimiento, Procurement Manager, Supply Chain Manager
 
 **Sus dolores:**
 - Demasiados proveedores que gestionar
-- Negociacion constante de precios
-- Evaluacion y homologacion de proveedores
-- Cumplimiento de politicas de compra
-- Trazabilidad y documentacion
+- Negociación constante de precios
+- Evaluación y homologación de proveedores
+- Cumplimiento de políticas de compra
+- Trazabilidad y documentación
 
-**Que le importa:**
-- Consolidacion de proveedores
+**Qué le importa:**
+- Consolidación de proveedores
 - Condiciones comerciales competitivas
 - Cumplimiento y certificaciones
-- Facilidad de gestion (portal, reportes)
+- Facilidad de gestión (portal, reportes)
 
 **Gancho efectivo:**
-- Reestructuraciones del area
-- Noticias de optimizacion de costos
-- Cambios en politicas de compra
+- Reestructuraciones del área
+- Noticias de optimización de costos
+- Cambios en políticas de compra
 
 ---
 
-## Clasificacion de Hallazgos
+## Ejemplos Completos
+
+### Ejemplo BUENO (Tipo A - Noticia de empresa)
+
+**Contexto:** La empresa acaba de anunciar expansión de planta en Mejillones
+
+**Asunto:** `Roberto, lo de mejillones...`
+
+**Email:**
+```
+Hola Roberto,
+
+Vi que acaban de anunciar la expansión en Mejillones.
+Pasar de 50,000 a 85,000 toneladas es un salto importante.
+
+Imagino que el tema de repuestos críticos para la línea nueva
+ya está en la lista de pendientes del equipo de mantenimiento.
+
+Trabajamos con una planta similar en Antofagasta y les armamos
+un stock de consignación para los SKUs más críticos. Les quitó
+un dolor de cabeza importante en el arranque.
+
+¿Ya tienen resuelto el abastecimiento de la línea nueva?
+
+Quedo atento,
+Gustavo
+faymex.cl
+```
+
+### Ejemplo BUENO (Tipo B - Logro del ejecutivo)
+
+**Contexto:** El gerente publicó en LinkedIn sobre implementación de mantenimiento predictivo
+
+**Asunto:** `Carolina, tu post sobre predictivo...`
+
+**Email:**
+```
+Hola Carolina,
+
+Leí tu publicación sobre la implementación de mantenimiento
+predictivo en la planta. El dato del 40% de reducción en
+paradas no programadas es impresionante.
+
+El siguiente paso típico es optimizar el inventario de repuestos
+basándose en los datos predictivos - pero conseguir los repuestos
+a tiempo sigue siendo el cuello de botella.
+
+Varias plantas que han hecho este cambio nos usan para tener
+stock local de lo que el sistema predice que van a necesitar.
+
+¿Cómo están manejando el tema de lead times de repuestos?
+
+Quedo atento,
+Gustavo
+faymex.cl
+```
+
+---
+
+## Clasificación de Hallazgos
 
 ### Tipo A - Noticia de Empresa (IDEAL)
-**Que es:** Noticia reciente (ultimos 30 dias) sobre la empresa
-**Ejemplos:** Expansion, nuevo proyecto, adquisicion, inauguracion, premio
-**Score minimo:** 80
-**Accion:** Enviar email inmediatamente
+**Qué es:** Noticia reciente (últimos 30 días) sobre la empresa
+**Ejemplos:** Expansión, nuevo proyecto, adquisición, inauguración, premio
+**Score mínimo:** 80
+**Acción:** Enviar email inmediatamente
 
 ### Tipo B - Logro del Ejecutivo (MUY BUENO)
-**Que es:** Publicacion, entrevista, nombramiento o logro del prospecto
+**Qué es:** Publicación, entrevista, nombramiento o logro del prospecto
 **Ejemplos:** Post en LinkedIn, entrevista en medio, ascenso, conferencia
-**Score minimo:** 70
-**Accion:** Enviar email inmediatamente
+**Score mínimo:** 70
+**Acción:** Enviar email inmediatamente
 
 ### Tipo C - Tendencia de Industria (BUENO)
-**Que es:** Desafio o tendencia del sector que les afecta
-**Ejemplos:** Cambios regulatorios, problemas de suministro, tendencias tecnologicas
-**Score minimo:** 50
-**Accion:** Enviar email si no hay A o B disponible
+**Qué es:** Desafío o tendencia del sector que les afecta
+**Ejemplos:** Cambios regulatorios, problemas de suministro, tendencias tecnológicas
+**Score mínimo:** 50
+**Acción:** Enviar email si no hay A o B disponible
 
-### Tipo D - Informacion General (SALTAR)
-**Que es:** Solo informacion basica de la empresa, sin hallazgo especifico
-**Ejemplos:** Solo datos de la web corporativa, informacion desactualizada
+### Tipo D - Información General (SALTAR)
+**Qué es:** Solo información básica de la empresa, sin hallazgo específico
+**Ejemplos:** Solo datos de la web corporativa, información desactualizada
 **Score:** < 50
-**Accion:** NO enviar email. Marcar para investigacion manual posterior.
+**Acción:** NO enviar email. Marcar para investigación manual posterior.
 
 ---
 
-## Checklist Pre-Envio
+## Checklist Pre-Envío
 
 Antes de aprobar un email, verificar:
 
-- [ ] Asunto tiene maximo 40 caracteres
-- [ ] Asunto esta en minusculas (excepto nombres propios)
+- [ ] Asunto tiene máximo 40 caracteres
+- [ ] Asunto incluye el primer nombre del prospecto
+- [ ] Asunto está en minúsculas (excepto nombres propios)
 - [ ] Asunto termina con puntos suspensivos
 - [ ] Asunto genera curiosidad (no revela todo)
-- [ ] Parrafo 1 tiene hallazgo especifico y verificable
-- [ ] Parrafo 2 menciona un dolor real y especifico
-- [ ] Parrafo 3 muestra credibilidad sin hacer pitch
-- [ ] CTA tiene maximo 15 palabras
-- [ ] CTA NO pide reunion directamente
+- [ ] Párrafo 1 tiene hallazgo específico y verificable
+- [ ] Párrafo 2 menciona un dolor real y específico
+- [ ] Párrafo 3 muestra credibilidad sin hacer pitch
+- [ ] CTA tiene máximo 15 palabras
+- [ ] CTA NO pide reunión directamente
 - [ ] CTA toca el dolor mencionado
-- [ ] Email completo tiene maximo 150 palabras
-- [ ] No hay frases corporativas vacias
-- [ ] No se menciona "lider", "mejor", "calidad premium"
+- [ ] Email completo tiene máximo 150 palabras
+- [ ] No hay frases corporativas vacías
+- [ ] No se menciona "líder", "mejor", "calidad premium"
+- [ ] No hay marcadores [1], [2], etc.

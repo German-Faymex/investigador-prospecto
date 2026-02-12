@@ -196,9 +196,53 @@ function fallbackCopy(text) {
     document.body.removeChild(textarea);
 }
 
+// --- Stop Research ---
+var activeXhr = null;
+
+function stopResearch() {
+    if (activeXhr) {
+        activeXhr.abort();
+        activeXhr = null;
+    }
+    // Also abort any active HTMX request on the form
+    var form = document.getElementById('research-form');
+    if (form) {
+        htmx.trigger(form, 'htmx:abort');
+    }
+    var stopBtn = document.getElementById('stop-btn');
+    var submitBtn = document.getElementById('submit-btn');
+    if (stopBtn) stopBtn.classList.add('hidden');
+    if (submitBtn) submitBtn.disabled = false;
+
+    // Hide loading spinner
+    var spinner = document.getElementById('loading-spinner');
+    if (spinner) spinner.classList.remove('htmx-request');
+
+    showToast('Investigacion detenida', 'warning');
+}
+
 // --- HTMX Event Handlers ---
+document.addEventListener('htmx:beforeRequest', function(event) {
+    // Show stop button when research starts
+    if (event.detail.elt && event.detail.elt.id === 'research-form') {
+        var stopBtn = document.getElementById('stop-btn');
+        if (stopBtn) {
+            stopBtn.classList.remove('hidden');
+            stopBtn.classList.add('flex');
+        }
+        activeXhr = event.detail.xhr;
+    }
+});
+
 document.addEventListener('htmx:afterSwap', function(event) {
-    // Scroll to new content
+    // Hide stop button and scroll to results
+    var stopBtn = document.getElementById('stop-btn');
+    if (stopBtn) {
+        stopBtn.classList.add('hidden');
+        stopBtn.classList.remove('flex');
+    }
+    activeXhr = null;
+
     if (event.detail.target) {
         setTimeout(function() {
             event.detail.target.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -207,13 +251,31 @@ document.addEventListener('htmx:afterSwap', function(event) {
 });
 
 document.addEventListener('htmx:responseError', function(event) {
+    var stopBtn = document.getElementById('stop-btn');
+    if (stopBtn) {
+        stopBtn.classList.add('hidden');
+        stopBtn.classList.remove('flex');
+    }
+    activeXhr = null;
     showToast('Error de conexion. Intenta nuevamente.', 'error');
 });
 
 document.addEventListener('htmx:sendError', function() {
+    var stopBtn = document.getElementById('stop-btn');
+    if (stopBtn) {
+        stopBtn.classList.add('hidden');
+        stopBtn.classList.remove('flex');
+    }
+    activeXhr = null;
     showToast('No se pudo conectar al servidor.', 'error');
 });
 
 document.addEventListener('htmx:timeout', function() {
+    var stopBtn = document.getElementById('stop-btn');
+    if (stopBtn) {
+        stopBtn.classList.add('hidden');
+        stopBtn.classList.remove('flex');
+    }
+    activeXhr = null;
     showToast('La solicitud tardo demasiado. Intenta nuevamente.', 'warning');
 });

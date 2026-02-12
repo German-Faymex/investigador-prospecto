@@ -291,12 +291,6 @@
                             {% endif %}
                         </div>
                     </div>
-                    {% if result.empresa.get('descripcion') %}
-                    <div>
-                        <span class="text-gray-400 text-xs uppercase tracking-wide">Descripcion</span>
-                        <p class="text-gray-700 text-xs">{{ result.empresa.descripcion }}</p>
-                    </div>
-                    {% endif %}
                     {% if result.empresa.get('productos_servicios') %}
                     <div>
                         <span class="text-gray-400 text-xs uppercase tracking-wide">Productos / Servicios</span>
@@ -313,18 +307,6 @@
                     <div>
                         <span class="text-gray-400 text-xs uppercase tracking-wide">Tamano</span>
                         <p class="text-gray-700 text-xs">{{ result.empresa.get('tamaño', result.empresa.get('tamano_empleados', '')) }}</p>
-                    </div>
-                    {% endif %}
-                    {% if result.empresa.get('ubicacion') %}
-                    <div>
-                        <span class="text-gray-400 text-xs uppercase tracking-wide">Ubicacion</span>
-                        <p class="text-gray-700 text-xs">{{ result.empresa.ubicacion }}</p>
-                    </div>
-                    {% endif %}
-                    {% if result.empresa.get('presencia') %}
-                    <div>
-                        <span class="text-gray-400 text-xs uppercase tracking-wide">Presencia</span>
-                        <p class="text-gray-700 text-xs">{{ result.empresa.presencia }}</p>
                     </div>
                     {% endif %}
                     {% if result.empresa.get('noticias_recientes') %}
