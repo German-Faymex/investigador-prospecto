@@ -1,0 +1,81 @@
+<div class="bg-white rounded-xl shadow-sm overflow-hidden mb-6 fade-in">
+    <div class="bg-gradient-to-r from-faymex-dark to-gray-800 px-6 py-4">
+        <h2 class="text-white font-semibold text-lg">Editor de Email</h2>
+    </div>
+    <div class="p-6">
+
+        <!-- Subject Line -->
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Asunto</label>
+            <div class="relative">
+                <input type="text" id="email-subject"
+                       value="{{ email.subject }}"
+                       maxlength="80"
+                       oninput="updateSubjectCounter(this)"
+                       class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-faymex-red focus:border-faymex-red outline-none pr-16">
+                <span id="subject-counter"
+                      class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                    {{ email.subject | length }}/40
+                </span>
+            </div>
+        </div>
+
+        <!-- Quill Editor -->
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Cuerpo del email</label>
+            <div id="quill-editor" class="quill-container"></div>
+        </div>
+
+        <!-- Stats Row -->
+        <div class="flex items-center gap-4 text-xs text-gray-500 mb-4">
+            <span id="word-count">Palabras: 0</span>
+            <span id="email-validity" class="flex items-center gap-1"></span>
+        </div>
+
+        <!-- Reasoning (collapsible) -->
+        {% if email.reasoning %}
+        <details class="mb-4 text-xs border border-gray-100 rounded-lg">
+            <summary class="px-3 py-2 text-gray-400 cursor-pointer hover:text-gray-600">
+                Razonamiento del LLM
+            </summary>
+            <p class="px-3 pb-2 text-gray-500">{{ email.reasoning }}</p>
+        </details>
+        {% endif %}
+
+        <!-- Action Buttons -->
+        <div class="flex items-center gap-3 justify-end">
+            <button onclick="copyEmailToClipboard()"
+                    class="px-5 py-2.5 bg-faymex-dark text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium flex items-center gap-2">
+                <span>&#128203; Copiar al Portapapeles</span>
+            </button>
+            <button hx-post="/api/email/generate"
+                    hx-target="#email-editor"
+                    hx-indicator="#regenerate-loading"
+                    hx-vals='js:{"research_data": JSON.stringify(researchData)}'
+                    hx-disabled-elt="this"
+                    class="px-5 py-2.5 border border-faymex-red text-faymex-red rounded-lg hover:bg-red-50 transition-colors text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                <span>&#128260; Regenerar</span>
+                <div class="spinner htmx-indicator" id="regenerate-loading"></div>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Store plain text for clipboard -->
+<textarea id="email-plain-text" class="hidden">{{ email.body_text }}</textarea>
+
+<script>
+    (function() {
+        // Initialize Quill
+        initQuillEditor('quill-editor', `{{ email.body_html | safe }}`);
+
+        // Update step indicator
+        updateStepIndicator(3);
+
+        // Update subject counter
+        var subjectInput = document.getElementById('email-subject');
+        if (subjectInput) updateSubjectCounter(subjectInput);
+
+        showToast('Email generado exitosamente', 'success');
+    })();
+</script>

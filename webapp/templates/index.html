@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Step Indicator -->
+<div class="flex justify-center mb-8">
+    <div class="flex items-center gap-3">
+        <div id="step-1" class="flex items-center gap-2">
+            <div class="step-circle w-8 h-8 rounded-full bg-faymex-red text-white flex items-center justify-center text-sm font-bold">1</div>
+            <span class="step-label text-sm font-medium text-faymex-red">Investigar</span>
+        </div>
+        <div class="w-8 h-0.5 bg-gray-300 transition-colors duration-300" id="connector-1-2"></div>
+        <div id="step-2" class="flex items-center gap-2 opacity-40 transition-opacity duration-300">
+            <div class="step-circle w-8 h-8 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center text-sm font-bold">2</div>
+            <span class="step-label text-sm font-medium text-gray-500">Resultados</span>
+        </div>
+        <div class="w-8 h-0.5 bg-gray-300 transition-colors duration-300" id="connector-2-3"></div>
+        <div id="step-3" class="flex items-center gap-2 opacity-40 transition-opacity duration-300">
+            <div class="step-circle w-8 h-8 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center text-sm font-bold">3</div>
+            <span class="step-label text-sm font-medium text-gray-500">Email</span>
+        </div>
+    </div>
+</div>
+
+<!-- Input Form Card -->
+<div class="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+    <div class="bg-gradient-to-r from-faymex-red to-red-700 px-6 py-4">
+        <h2 class="text-white font-semibold text-lg">Datos del Prospecto</h2>
+    </div>
+    <form id="research-form"
+          hx-post="/api/research"
+          hx-target="#research-results"
+          hx-indicator="#loading-spinner"
+          hx-disabled-elt="button[type=submit]"
+          class="p-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
+                <input type="text" name="name" required placeholder="Ej: Roberto Garcia"
+                       class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-faymex-red focus:border-faymex-red outline-none transition-shadow">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Empresa *</label>
+                <input type="text" name="company" required placeholder="Ej: CODELCO"
+                       class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-faymex-red focus:border-faymex-red outline-none transition-shadow">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Cargo <span class="text-gray-400">(opcional)</span></label>
+                <input type="text" name="role" placeholder="Ej: Gerente de Mantenimiento"
+                       class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-faymex-red focus:border-faymex-red outline-none transition-shadow">
+            </div>
+        </div>
+        <div class="mt-4 flex justify-end">
+            <button type="submit"
+                    class="px-6 py-2.5 bg-faymex-red text-white rounded-lg hover:bg-red-700 transition-colors font-medium text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                <span>&#128270; Investigar</span>
+                <div class="spinner htmx-indicator"></div>
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Loading Spinner (shown during research) -->
+<div id="loading-spinner" class="htmx-indicator">
+    {% include "partials/loading.html" %}
+</div>
+
+<!-- Research Results (populated via HTMX) -->
+<div id="research-results"></div>
+
+<!-- Email Editor (populated via HTMX) -->
+<div id="email-editor"></div>
+
+{% endblock %}

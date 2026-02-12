@@ -1,0 +1,214 @@
+<!-- Store research data for email generation -->
+<script>
+    var researchData = {{ result_json | safe }};
+</script>
+
+<div class="space-y-4 mb-6 fade-in">
+
+    <!-- Info Cards Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+        <!-- Personal Info -->
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="bg-faymex-dark px-5 py-3">
+                <h3 class="text-white font-medium text-sm">Info Personal</h3>
+            </div>
+            <div class="p-5 space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-gray-500">Nombre</span>
+                    <span class="font-medium">{{ result.persona.get('nombre_completo', result.persona.get('nombre', name)) }}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-500">Cargo</span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-medium">{{ result.cargo_descubierto or result.persona.get('cargo_actual', result.persona.get('cargo', 'No encontrado')) }}</span>
+                        {% if result.cargo_descubierto or result.persona.get('cargo_actual') %}
+                            <span class="badge-verified" title="Verificado">&#9989;</span>
+                        {% else %}
+                            <span class="badge-partial" title="No verificado">&#9888;</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if result.persona.get('linkedin_url') %}
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-500">LinkedIn</span>
+                    <a href="{{ result.persona.linkedin_url }}" target="_blank" rel="noopener"
+                       class="text-blue-600 hover:underline text-xs truncate max-w-[200px]">
+                        {{ result.persona.linkedin_url | truncate(40) }}
+                    </a>
+                </div>
+                {% endif %}
+                {% if result.persona.get('logros_recientes') %}
+                <div class="pt-1 border-t border-gray-100">
+                    <span class="text-gray-500 text-xs">Logros recientes</span>
+                    <p class="text-xs text-gray-700 mt-0.5">{{ result.persona.logros_recientes }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Company Info -->
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="bg-faymex-dark px-5 py-3">
+                <h3 class="text-white font-medium text-sm">Info Empresa</h3>
+            </div>
+            <div class="p-5 space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-gray-500">Empresa</span>
+                    <span class="font-medium">{{ result.empresa.get('nombre', company) }}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-500">Industria</span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-medium">{{ result.empresa.get('industria', 'No identificada') }}</span>
+                        {% if result.empresa.get('industria') %}
+                            <span class="badge-verified">&#9989;</span>
+                        {% else %}
+                            <span class="badge-partial">&#9888;</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if result.empresa.get('noticias_recientes') %}
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-500">Noticias</span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-medium text-xs">{{ result.empresa.noticias_recientes | truncate(50) }}</span>
+                        <span class="badge-verified">&#9989;</span>
+                    </div>
+                </div>
+                {% endif %}
+                {% if result.empresa.get('desafios_sector') %}
+                <div class="pt-1 border-t border-gray-100">
+                    <span class="text-gray-500 text-xs">Desafios del sector</span>
+                    <p class="text-xs text-gray-700 mt-0.5">{{ result.empresa.desafios_sector }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- SMTYKM Findings Card -->
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        <!-- Score Header -->
+        <div class="px-6 py-4
+            {% if result.score >= 80 %}
+                score-hot
+            {% elif result.score >= 60 %}
+                score-good
+            {% elif result.score >= 40 %}
+                score-marginal
+            {% else %}
+                score-low
+            {% endif %}
+        ">
+            <div class="flex items-center justify-between">
+                <h3 class="text-white font-semibold text-lg">Hallazgos SMTYKM</h3>
+                <div class="flex items-center gap-3">
+                    <span class="text-white/80 text-sm">
+                        {% if result.score >= 80 %}
+                            &#128293; Oportunidad caliente
+                        {% elif result.score >= 60 %}
+                            &#9989; Buena oportunidad
+                        {% elif result.score >= 40 %}
+                            &#9888; Oportunidad marginal
+                        {% else %}
+                            &#10060; Sin datos suficientes
+                        {% endif %}
+                    </span>
+                    <div class="bg-white/20 rounded-full px-3 py-1">
+                        <span class="text-white font-bold text-lg">{{ result.score }}<span class="text-sm font-normal">/100</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-6">
+            <!-- Findings List -->
+            {% if result.hallazgos %}
+            <div class="space-y-3 mb-4">
+                {% for h in result.hallazgos %}
+                <div class="flex items-start gap-3 p-3 rounded-lg bg-gray-50">
+                    <span class="mt-0.5">
+                        {% if h.get('confidence') == 'verified' %}
+                            <span class="badge-verified">&#9989;</span>
+                        {% else %}
+                            <span class="badge-partial">&#9888;</span>
+                        {% endif %}
+                    </span>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm text-gray-800">{{ h.get('content', '') }}</p>
+                        {% if h.get('sources') %}
+                        <div class="flex flex-wrap gap-1.5 mt-1.5">
+                            {% for src in h.sources[:3] %}
+                            <a href="{{ src }}" target="_blank" rel="noopener"
+                               class="text-xs text-blue-500 hover:text-blue-700 bg-blue-50 px-2 py-0.5 rounded truncate max-w-[180px]">
+                                {{ src | truncate(35) }}
+                            </a>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Finding Type -->
+            <div class="flex items-center gap-2 text-sm text-gray-600 border-t border-gray-100 pt-3">
+                <span class="font-medium">Tipo de hallazgo:</span>
+                <span class="bg-faymex-dark text-white text-xs font-bold px-2 py-0.5 rounded">{{ result.hallazgo_tipo }}</span>
+                <span class="text-gray-500">
+                    {% if result.hallazgo_tipo == 'A' %}
+                        - Noticia de la empresa
+                    {% elif result.hallazgo_tipo == 'B' %}
+                        - Logro del ejecutivo
+                    {% elif result.hallazgo_tipo == 'C' %}
+                        - Tendencia de la industria
+                    {% elif result.hallazgo_tipo == 'D' %}
+                        - Informacion general
+                    {% endif %}
+                </span>
+            </div>
+
+            <!-- Sources -->
+            {% if result.raw_sources %}
+            <details class="mt-3 text-xs">
+                <summary class="text-gray-400 cursor-pointer hover:text-gray-600">
+                    {{ result.raw_sources | length }} fuentes consultadas (modelo: {{ result.llm_used }})
+                </summary>
+                <div class="mt-2 space-y-1 pl-2">
+                    {% for src in result.raw_sources[:8] %}
+                    <div class="flex items-center gap-2 text-gray-500">
+                        <span class="w-16 text-gray-400 shrink-0">{{ src.get('source', '') }}</span>
+                        <a href="{{ src.get('url', '#') }}" target="_blank" rel="noopener"
+                           class="text-blue-500 hover:underline truncate">
+                            {{ src.get('title', src.get('url', '')) | truncate(60) }}
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
+        </div>
+
+        <!-- Generate Email Button -->
+        <div class="px-6 pb-6">
+            <div class="flex justify-center">
+                <button hx-post="/api/email/generate"
+                        hx-target="#email-editor"
+                        hx-indicator="#email-loading"
+                        hx-vals='js:{"research_data": JSON.stringify(researchData)}'
+                        class="px-8 py-3 bg-faymex-red text-white rounded-lg hover:bg-red-700 transition-colors font-medium text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        hx-disabled-elt="this">
+                    <span>&#128231; Generar Email</span>
+                    <div class="spinner htmx-indicator" id="email-loading"></div>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    updateStepIndicator(2);
+    showToast('Investigacion completada - Score: {{ result.score }}/100', 'success');
+</script>
