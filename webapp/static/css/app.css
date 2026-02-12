@@ -122,12 +122,20 @@
 /* --- Quill Editor Overrides --- */
 .quill-container .ql-editor {
     min-height: 200px;
-    max-height: 400px;
+    max-height: 500px;
     overflow-y: auto;
     font-family: 'Sora', sans-serif;
-    font-size: 0.875rem;
-    line-height: 1.6;
+    font-size: 0.9375rem;
+    line-height: 1.7;
     color: #1C2226;
+}
+
+/* Force paragraph spacing in Quill */
+.quill-container .ql-editor p {
+    margin-bottom: 14px;
+}
+.quill-container .ql-editor p:last-child {
+    margin-bottom: 0;
 }
 
 .quill-container .ql-toolbar {

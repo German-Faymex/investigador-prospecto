@@ -1,19 +1,18 @@
 <!-- Replaces #email-area on regenerate -->
 <div class="bg-white rounded-xl shadow-sm overflow-hidden fade-in">
     <div class="bg-gradient-to-r from-faymex-dark to-gray-800 px-5 py-3">
-        <h2 class="text-white font-semibold text-sm">&#128231; Email SMTYKM</h2>
+        <h2 class="text-white font-semibold">&#128231; Email SMTYKM</h2>
     </div>
     <div class="p-5">
 
-        <!-- Subject Line -->
-        <div class="mb-3">
-            <label class="block text-xs font-medium text-gray-700 mb-1">Asunto</label>
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Asunto</label>
             <div class="relative">
                 <input type="text" id="email-subject"
                        value="{{ email.subject }}"
                        maxlength="80"
                        oninput="updateSubjectCounter(this)"
-                       class="w-full border-2 border-gray-200 rounded-lg px-3 py-2.5 text-sm font-medium focus:ring-2 focus:ring-faymex-red focus:border-faymex-red outline-none pr-14">
+                       class="w-full border-2 border-gray-200 rounded-lg px-4 py-3 text-base font-medium focus:ring-2 focus:ring-faymex-red focus:border-faymex-red outline-none pr-16">
                 <span id="subject-counter"
                       class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
                     {{ email.subject | length }}/40
@@ -21,21 +20,18 @@
             </div>
         </div>
 
-        <!-- Quill Editor -->
-        <div class="mb-3">
-            <label class="block text-xs font-medium text-gray-700 mb-1">Cuerpo del email</label>
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Cuerpo del email</label>
             <div id="quill-editor" class="quill-container"></div>
         </div>
 
-        <!-- Stats Row -->
-        <div class="flex items-center gap-4 text-xs text-gray-500 mb-3 border-t border-gray-100 pt-2">
+        <div class="flex items-center gap-4 text-sm text-gray-500 mb-4 border-t border-gray-100 pt-3">
             <span id="word-count">Palabras: 0</span>
             <span id="email-validity" class="flex items-center gap-1"></span>
         </div>
 
-        <!-- Reasoning (collapsible) -->
         {% if email.reasoning %}
-        <details class="mb-3 text-xs border border-gray-100 rounded-lg">
+        <details class="mb-4 text-sm border border-gray-100 rounded-lg">
             <summary class="px-3 py-2 text-gray-400 cursor-pointer hover:text-gray-600">
                 &#129504; Razonamiento del LLM
             </summary>
@@ -43,26 +39,24 @@
         </details>
         {% endif %}
 
-        <!-- Action Buttons -->
         <div class="flex items-center gap-3 justify-between">
             <button hx-post="/api/email/generate"
                     hx-target="#email-area"
                     hx-indicator="#regenerate-loading"
                     hx-vals='js:{"research_data": JSON.stringify(researchData)}'
                     hx-disabled-elt="this"
-                    class="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors text-xs font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                    class="px-5 py-2.5 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                 <span>&#128260; Regenerar</span>
                 <div class="spinner htmx-indicator" id="regenerate-loading" style="border-top-color: #666"></div>
             </button>
             <button onclick="copyEmailToClipboard()"
-                    class="px-4 py-2 bg-faymex-red text-white rounded-lg hover:bg-red-700 transition-colors text-xs font-medium flex items-center gap-2">
-                <span>&#128203; Copiar</span>
+                    class="px-5 py-2.5 bg-faymex-red text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium flex items-center gap-2">
+                <span>&#128203; Copiar al Portapapeles</span>
             </button>
         </div>
     </div>
 </div>
 
-<!-- Store plain text for clipboard -->
 <textarea id="email-plain-text" class="hidden">{{ email.body_text }}</textarea>
 
 <script>
