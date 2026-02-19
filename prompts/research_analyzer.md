@@ -105,5 +105,5 @@ El `hallazgo_tipo` debe ser el MEJOR tipo encontrado entre todos los hallazgos.
 10. Si un dato solo aparece en 1 fuente, su confidence debe ser `"partial"`. Si aparece en 2+ fuentes, puede ser `"verified"`.
 11. **NO incluyas hallazgos sin fuente**. Si no hay una URL que respalde un dato, no lo conviertas en hallazgo.
 12. No inventes noticias, montos, contratos, fechas ni logros que no estén explícitamente en los datos scrapeados.
-13. **Números del sitio web corporativo**: Si el sitio web de la empresa menciona cifras (ej: "+89500 proyectos"), cítalos tal cual con "según su sitio web" y la URL fuente. NO los presentes como hechos verificados independientemente.
+13. **Números del sitio web corporativo**: Si el sitio web de la empresa menciona cifras, cítalas EXACTAMENTE como aparecen, con la unidad correcta (horas, proyectos, empleados, etc.). NO cambies la unidad ni confundas métricas distintas. Ejemplo: si dice "+89500 horas efectivas" NO lo conviertas en "+89500 proyectos". Siempre incluye "según su sitio web" y la URL fuente.
 14. **Datos de LinkedIn**: Si los datos incluyen información de LinkedIn (cargo, experiencia, educación, ubicación), ÚSALOS para llenar los campos de persona. La fuente LinkedIn es valiosa para datos personales.
