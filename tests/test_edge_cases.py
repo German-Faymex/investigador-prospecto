@@ -629,7 +629,7 @@ async def test_perplexity_no_api_key_returns_empty():
 # =============================================================================
 @pytest.mark.asyncio
 async def test_perplexity_successful_response():
-    """Una respuesta exitosa de Perplexity debe generar ScrapedItems de persona, empresa y noticias."""
+    """Una respuesta exitosa genera solo items de persona y empresa (sin noticias)."""
     scraper = PerplexityScraper()
 
     mock_api_response = {
@@ -657,15 +657,9 @@ async def test_perplexity_successful_response():
                     "hallazgos": [
                         {
                             "titulo": "Copec inaugura nueva planta",
-                            "resumen": "Copec inauguró nueva planta de almacenamiento en Antofagasta",
+                            "resumen": "Copec inauguró nueva planta en Antofagasta",
                             "fecha": "2026-01-15",
                             "url": "https://news.example.com/copec-planta"
-                        },
-                        {
-                            "titulo": "Expansión red de estaciones",
-                            "resumen": "Plan de expansión con 50 nuevas estaciones",
-                            "fecha": "2025-12-01",
-                            "url": ""
                         }
                     ]
                 })
@@ -681,27 +675,26 @@ async def test_perplexity_successful_response():
          patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_response):
         results = await scraper.search("Henry Zabala Sarmiento", "Copec", role="Gerente de Operaciones")
 
-    # Debe generar: 1 persona + 1 empresa + 2 noticias = 4 items
-    assert len(results) == 4, f"Esperados 4 items, obtuve {len(results)}: {[r.source for r in results]}"
+    # Solo persona + empresa (hallazgos/noticias se ignoran por riesgo de alucinación)
+    assert len(results) == 2, f"Esperados 2 items, obtuve {len(results)}: {[r.source for r in results]}"
 
     sources = [r.source for r in results]
     assert "perplexity_persona" in sources, "Falta item de persona"
     assert "perplexity_empresa" in sources, "Falta item de empresa"
-    assert sources.count("perplexity_news") == 2, f"Esperadas 2 noticias, obtuve {sources.count('perplexity_news')}"
+    assert "perplexity_news" not in sources, "Items de noticias no deben generarse"
 
     # Verificar contenido del item de persona
     persona_item = next(r for r in results if r.source == "perplexity_persona")
     assert "Gerente de Operaciones" in persona_item.snippet
-    assert "linkedin.com" in persona_item.url
+    assert persona_item.url == "", "URLs de Perplexity no deben usarse"
 
     # Verificar contenido del item de empresa
     empresa_item = next(r for r in results if r.source == "perplexity_empresa")
     assert "Energía" in empresa_item.snippet or "combustibles" in empresa_item.snippet
-    assert "copec.cl" in empresa_item.url
+    assert empresa_item.url == "", "URLs de Perplexity no deben usarse"
 
-    # Verificar noticias tienen fecha
-    news_items = [r for r in results if r.source == "perplexity_news"]
-    assert "2026-01-15" in news_items[0].snippet
+    # Verificar que last_result NO contiene hallazgos
+    assert "hallazgos" not in scraper.last_result, "last_result no debe tener hallazgos"
 
 
 # =============================================================================
@@ -724,14 +717,14 @@ async def test_perplexity_api_error_returns_empty():
 # TEST 23: Perplexity scraper maneja JSON inválido como texto crudo
 # =============================================================================
 @pytest.mark.asyncio
-async def test_perplexity_invalid_json_fallback():
-    """Si Perplexity responde con texto no-JSON, debe crear un item con el texto crudo."""
+async def test_perplexity_invalid_json_returns_empty():
+    """Si Perplexity responde con texto no-JSON, debe retornar [] (no inyectar texto crudo)."""
     scraper = PerplexityScraper()
 
     mock_api_response = {
         "choices": [{
             "message": {
-                "content": "No pude encontrar información estructurada sobre esta persona, pero sé que trabaja en minería."
+                "content": "No pude encontrar información estructurada sobre esta persona."
             }
         }]
     }
@@ -744,9 +737,7 @@ async def test_perplexity_invalid_json_fallback():
          patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_response):
         results = await scraper.search("Test User", "TestCo")
 
-    assert len(results) == 1, f"Esperado 1 item de fallback, obtuve {len(results)}"
-    assert "perplexity" in results[0].source
-    assert "minería" in results[0].snippet
+    assert results == [], f"Esperado [] para JSON inválido, obtuve {results}"
 
 
 # =============================================================================
@@ -786,7 +777,7 @@ async def test_perplexity_enriches_empty_fields():
     })
     llm_response = MockLLMResponse(content=llm_json)
 
-    # Simular datos de Perplexity
+    # Simular datos de Perplexity (sin hallazgos — se excluyen por riesgo de alucinación)
     service.orchestrator.perplexity_scraper.last_result = {
         "persona": {
             "nombre_completo": "Henry Zabala Sarmiento",
@@ -802,9 +793,6 @@ async def test_perplexity_enriches_empty_fields():
             "tamano_empleados": "5000+",
             "ubicacion": "Santiago, Chile",
         },
-        "hallazgos": [
-            {"titulo": "Copec inauguró nueva planta", "resumen": "Nueva planta en Antofagasta", "fecha": "2026-01", "url": "https://news.example.com/copec"}
-        ],
     }
 
     service.orchestrator.corporate_scraper.discovered_domain = "https://www.copec.cl"
@@ -824,9 +812,6 @@ async def test_perplexity_enriches_empty_fields():
         f"cargo_descubierto no enriquecido: {result.cargo_descubierto}"
     assert result.empresa.get("descripcion") == "Principal distribuidora de combustibles en Chile"
     assert result.empresa.get("productos_servicios") == ["Combustibles", "Lubricantes", "Gas"]
-    # Hallazgo de Perplexity debe haberse agregado
-    assert any("Copec inauguró" in h.get("content", "") for h in result.hallazgos), \
-        f"Hallazgo de Perplexity no agregado: {result.hallazgos}"
 
 
 # =============================================================================

@@ -8,7 +8,15 @@ from scraper.base import BaseScraper, ScrapedItem
 
 
 class PerplexityScraper(BaseScraper):
-    """Busca información sobre prospectos usando Perplexity sonar-pro."""
+    """Busca información sobre prospectos usando Perplexity sonar-pro.
+
+    IMPORTANTE: Perplexity tiende a alucinar noticias, URLs y datos sobre
+    personas poco conocidas. Por eso:
+    - Solo generamos ScrapedItems para persona y empresa (datos estructurados)
+    - NO generamos items de hallazgos/noticias (demasiado propensos a ser falsos)
+    - Las URLs de Perplexity NO se usan (frecuentemente son fabricadas/404)
+    - Los datos de persona/empresa se usan para enriquecimiento post-LLM
+    """
 
     API_URL = "https://api.perplexity.ai/chat/completions"
     MODEL = "sonar-pro"
@@ -29,11 +37,20 @@ class PerplexityScraper(BaseScraper):
         current_date = today.strftime("%d de %B de %Y")
 
         system_prompt = (
-            "Eres un investigador experto en prospección B2B. "
-            "Busca información RECIENTE y VERIFICABLE sobre el ejecutivo y su empresa. "
-            f"FECHA ACTUAL: {current_date}. "
-            f"Solo usa información de los últimos 6 meses (desde {date_limit}). "
-            "Responde SIEMPRE en JSON con esta estructura exacta:\n"
+            "Eres un investigador B2B. Tu tarea es buscar información REAL y VERIFICABLE.\n\n"
+            "REGLAS ANTI-ALUCINACIÓN (CRÍTICAS - LEER CON ATENCIÓN):\n"
+            "1. NUNCA inventes información. Si no encuentras datos reales, deja el campo vacío ''.\n"
+            "2. NUNCA fabriques URLs. Si no tienes una URL REAL que hayas encontrado, deja el campo vacío.\n"
+            "3. NUNCA inventes noticias, eventos, conferencias, montos de inversión ni proyectos.\n"
+            "4. Si no encuentras información sobre la PERSONA, devuelve persona con campos vacíos.\n"
+            "5. CUIDADO con empresas homónimas: verifica que la empresa encontrada sea la CORRECTA.\n"
+            "   - Verifica país, industria y contexto. Si hay ambigüedad, indica cuál empresa encontraste.\n"
+            "6. El campo 'hallazgos' SOLO debe contener noticias que REALMENTE existan con URLs REALES.\n"
+            "   Si no encuentras noticias reales, devuelve 'hallazgos': []\n"
+            "7. Es MIL VECES mejor devolver campos vacíos que inventar datos falsos.\n\n"
+            f"FECHA ACTUAL: {current_date}.\n"
+            f"Solo información de los últimos 6 meses (desde {date_limit}).\n\n"
+            "Responde en JSON con esta estructura:\n"
             "{\n"
             '  "persona": {\n'
             '    "nombre_completo": "", "cargo_actual": "", "empresa_actual": "",\n'
@@ -45,9 +62,7 @@ class PerplexityScraper(BaseScraper):
             '    "productos_servicios": [], "tamano_empleados": "",\n'
             '    "ubicacion": "", "sitio_web": ""\n'
             "  },\n"
-            '  "hallazgos": [\n'
-            '    {"titulo": "", "resumen": "", "fecha": "", "url": ""}\n'
-            "  ]\n"
+            '  "hallazgos": []\n'
             "}"
         )
 
@@ -57,12 +72,16 @@ class PerplexityScraper(BaseScraper):
             f"Investiga a {name}{role_part} de la empresa {company}{location_part}.\n\n"
             f"Busca:\n"
             f"1. Perfil profesional de {name} en {company} (cargo, trayectoria, LinkedIn, educación)\n"
-            f"2. Información de {company} (industria, productos/servicios, tamaño, ubicación, sitio web)\n"
-            f"3. Noticias recientes de {company} o {name} (últimos 6 meses desde {date_limit})\n"
+            f"2. Información de {company} (industria, productos/servicios, tamaño, ubicación, sitio web)\n\n"
+            f"IMPORTANTE: {company} puede tener homónimos en otros países. "
+            f"Asegúrate de que la información corresponda a la empresa correcta"
+            f"{location_part}.\n"
+            f"Si no encuentras información verificable, devuelve campos vacíos. "
+            f"NO inventes datos ni URLs."
         )
 
         try:
-            async with httpx.AsyncClient(timeout=30) as client:
+            async with httpx.AsyncClient(timeout=25) as client:
                 response = await client.post(
                     self.API_URL,
                     headers={
@@ -75,7 +94,7 @@ class PerplexityScraper(BaseScraper):
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": user_prompt},
                         ],
-                        "temperature": 0.2,
+                        "temperature": 0.1,
                         "max_tokens": 4096,
                     },
                 )
@@ -91,7 +110,12 @@ class PerplexityScraper(BaseScraper):
             return []
 
     def _parse_response(self, content: str, name: str, company: str) -> list[ScrapedItem]:
-        """Parsea la respuesta JSON de Perplexity en ScrapedItems."""
+        """Parsea la respuesta JSON de Perplexity en ScrapedItems.
+
+        Solo genera items para persona y empresa. Los hallazgos/noticias
+        de Perplexity se IGNORAN porque son muy propensos a alucinación
+        (URLs inventadas, eventos falsos, confusión de empresas homónimas).
+        """
         try:
             clean = content
             if "```json" in clean:
@@ -101,22 +125,19 @@ class PerplexityScraper(BaseScraper):
 
             data = json.loads(clean.strip())
         except (json.JSONDecodeError, IndexError):
-            # Si no es JSON, devolver el texto crudo como un solo item
-            if content.strip():
-                return [ScrapedItem(
-                    url="",
-                    title=f"{name} en {company} - Perplexity",
-                    snippet=content[:2000],
-                    source="perplexity",
-                )]
             return []
 
         # Guardar datos estructurados para enriquecimiento directo
-        self.last_result = data
+        # (pero sin hallazgos — son poco confiables)
+        safe_data = {
+            "persona": data.get("persona", {}),
+            "empresa": data.get("empresa", {}),
+        }
+        self.last_result = safe_data
 
         items = []
 
-        # Item de persona
+        # Item de persona — sin URL (las URLs de Perplexity suelen ser fabricadas)
         persona = data.get("persona", {})
         if persona:
             parts = []
@@ -129,17 +150,19 @@ class PerplexityScraper(BaseScraper):
             if persona.get("educacion"):
                 parts.append(f"Educación: {persona['educacion']}")
             if persona.get("logros_recientes"):
-                parts.append(f"Logros: {'; '.join(persona['logros_recientes'][:3])}")
+                logros = [l for l in persona["logros_recientes"] if l]
+                if logros:
+                    parts.append(f"Logros: {'; '.join(logros[:3])}")
 
             if parts:
                 items.append(ScrapedItem(
-                    url=persona.get("linkedin_url", ""),
+                    url="",  # No usar URLs de Perplexity — frecuentemente fabricadas
                     title=f"{persona.get('nombre_completo', name)} - Perfil profesional",
                     snippet=". ".join(parts),
                     source="perplexity_persona",
                 ))
 
-        # Item de empresa
+        # Item de empresa — sin URL (usar dominio del corporate scraper en su lugar)
         empresa = data.get("empresa", {})
         if empresa:
             parts = []
@@ -156,30 +179,14 @@ class PerplexityScraper(BaseScraper):
 
             if parts:
                 items.append(ScrapedItem(
-                    url=empresa.get("sitio_web", ""),
+                    url="",  # No usar URLs de Perplexity
                     title=f"{empresa.get('nombre', company)} - Información corporativa",
                     snippet=". ".join(parts),
                     source="perplexity_empresa",
                 ))
 
-        # Items de hallazgos/noticias
-        for hallazgo in data.get("hallazgos", []):
-            titulo = hallazgo.get("titulo", "")
-            resumen = hallazgo.get("resumen", "")
-            if not titulo and not resumen:
-                continue
-
-            fecha = hallazgo.get("fecha", "")
-            snippet = resumen
-            if fecha:
-                snippet = f"[{fecha}] {snippet}"
-
-            items.append(ScrapedItem(
-                url=hallazgo.get("url", ""),
-                title=titulo or f"Hallazgo sobre {company}",
-                snippet=snippet,
-                source="perplexity_news",
-                timestamp=fecha,
-            ))
+        # NOTA: NO creamos items de hallazgos/noticias de Perplexity.
+        # Son la fuente principal de alucinación (URLs inventadas,
+        # noticias falsas, confusión con empresas homónimas).
 
         return items

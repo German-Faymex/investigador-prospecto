@@ -275,22 +275,10 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
         if not empresa.get("desafios_sector") and pplx_empresa.get("desafios_sector"):
             empresa["desafios_sector"] = pplx_empresa["desafios_sector"]
 
-        # Enriquecer hallazgos: agregar noticias de Perplexity que no estén duplicadas
-        pplx_hallazgos = pplx_data.get("hallazgos", [])
-        if pplx_hallazgos and isinstance(pplx_hallazgos, list):
-            existing_contents = {h.get("content", "").lower()[:50] for h in result.hallazgos}
-            for h in pplx_hallazgos:
-                titulo = h.get("titulo", "")
-                resumen = h.get("resumen", "")
-                content = f"{titulo}: {resumen}" if titulo and resumen else titulo or resumen
-                if not content or content.lower()[:50] in existing_contents:
-                    continue
-                result.hallazgos.append({
-                    "content": content,
-                    "tipo": "B",
-                    "sources": [h["url"]] if h.get("url") else [],
-                    "confidence": "partial",
-                })
+        # NOTA: NO enriquecemos hallazgos desde Perplexity.
+        # Los hallazgos/noticias de Perplexity son muy propensos a alucinación
+        # (URLs inventadas, noticias falsas, confusión de empresas homónimas).
+        # Solo usamos datos de persona y empresa que son más confiables.
 
         # Si cargo_descubierto está vacío, usar el de Perplexity
         if not result.cargo_descubierto or result.cargo_descubierto in ("", "No disponible", "No especificado"):
