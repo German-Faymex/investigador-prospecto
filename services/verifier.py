@@ -54,10 +54,15 @@ class Verifier:
         groups: list[dict] = []
 
         for item in items:
-            if not item.snippet or len(item.snippet.strip()) < 10:
+            # Usar snippet como texto principal; si snippet es muy corto, usar title como fallback
+            text = item.snippet.strip() if item.snippet else ""
+            if len(text) < 10 and item.title and len(item.title.strip()) >= 10:
+                text = item.title.strip()
+                item.snippet = text  # Promover title a snippet para el resto del pipeline
+            elif len(text) < 10:
                 continue
 
-            tokens = _tokenize(item.snippet)
+            tokens = _tokenize(text)
             if not tokens:
                 continue
 

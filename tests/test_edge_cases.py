@@ -452,3 +452,26 @@ async def test_linkedin_enrich_extracts_meta():
     # Title debe haberse enriquecido
     assert "Gerente" in result[0].title or "CODELCO" in result[0].title, \
         f"Title no enriquecido: {result[0].title}"
+
+
+# =============================================================================
+# TEST 14: Verifier usa title como fallback cuando snippet es muy corto
+# =============================================================================
+def test_verifier_title_fallback_for_short_snippet():
+    """Items con snippet vacío/corto pero título útil no deben descartarse."""
+    verifier = Verifier()
+
+    items = [
+        ScrapedItem(
+            url="https://cl.linkedin.com/in/roberto-garcia",
+            title="Roberto Garcia - Gerente Mantenimiento en CODELCO | LinkedIn",
+            snippet="",  # Sin snippet (DDG no lo devolvió)
+            source="linkedin",
+        ),
+    ]
+    facts = verifier.verify(items)
+
+    # No debe descartarse: el title tiene info valiosa
+    assert len(facts) >= 1, "Item con título útil fue descartado por snippet vacío"
+    assert "Roberto Garcia" in facts[0].content or "Gerente" in facts[0].content, \
+        f"Title no usado como fallback: {facts[0].content}"

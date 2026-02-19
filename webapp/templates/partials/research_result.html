@@ -175,25 +175,6 @@
                     {% endif %}
                 </div>
             </div>
-
-            {% if result.raw_sources %}
-            <details class="text-sm bg-white rounded-xl shadow-sm overflow-hidden">
-                <summary class="px-5 py-3 text-gray-400 cursor-pointer hover:text-gray-600 font-medium">
-                    &#128269; {{ result.raw_sources | length }} fuentes
-                </summary>
-                <div class="px-5 pb-3 space-y-1">
-                    {% for src in result.raw_sources[:10] %}
-                    <div class="flex items-center gap-2 text-gray-500 text-sm">
-                        <span class="w-16 text-gray-400 shrink-0">{{ src.get('source', '') }}</span>
-                        <a href="{{ src.get('url', '#') }}" target="_blank" rel="noopener"
-                           class="text-blue-500 hover:underline truncate">
-                            {{ src.get('title', src.get('url', '')) | truncate(40) }}
-                        </a>
-                    </div>
-                    {% endfor %}
-                </div>
-            </details>
-            {% endif %}
         </div>
 
         <!-- CENTER COLUMN: Email Editor -->
@@ -366,6 +347,25 @@
                     {% endif %}
                 </div>
             </div>
+
+            {% if result.raw_sources %}
+            <details class="text-sm bg-white rounded-xl shadow-sm overflow-hidden">
+                <summary class="px-5 py-3 text-gray-400 cursor-pointer hover:text-gray-600 font-medium">
+                    &#128269; {{ result.raw_sources | length }} fuentes
+                </summary>
+                <div class="px-5 pb-3 space-y-1">
+                    {% for src in result.raw_sources[:10] %}
+                    <div class="flex items-center gap-2 text-gray-500 text-sm">
+                        <span class="w-16 text-gray-400 shrink-0">{{ src.get('source', '') }}</span>
+                        <a href="{{ src.get('url', '#') }}" target="_blank" rel="noopener"
+                           class="text-blue-500 hover:underline truncate">
+                            {{ src.get('title', src.get('url', '')) | truncate(40) }}
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
         </div>
 
     </div>
