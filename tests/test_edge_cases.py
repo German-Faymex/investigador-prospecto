@@ -4,6 +4,8 @@ import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from dataclasses import dataclass
 
+from bs4 import BeautifulSoup
+
 from scraper.base import ScrapedItem
 from scraper.google_search import GoogleSearchScraper
 from scraper.google_news import GoogleNewsScraper
@@ -100,6 +102,21 @@ MOCK_CORPORATE_ABOUT = """
 <head><title>Sobre Nosotros – Faymex</title></head>
 <body>
 <p>Fundada en 2016, Faymex ofrece servicios de fabricacion, montaje y mantenimiento industrial.</p>
+</body>
+</html>
+"""
+
+MOCK_SPA_HOMEPAGE = """
+<html>
+<head>
+    <title>Copec - Energía para avanzar</title>
+    <meta name="description" content="Copec es la principal distribuidora de combustibles en Chile, con más de 600 estaciones de servicio y presencia en energía, forestal y minería.">
+    <meta property="og:description" content="Empresa chilena líder en distribución de combustibles y energía.">
+    <meta property="og:title" content="Copec S.A.">
+</head>
+<body>
+<div id="app"></div>
+<script src="/static/js/main.bundle.js"></script>
 </body>
 </html>
 """
@@ -572,3 +589,19 @@ async def test_email_generator_cleans_no_disponible_cargo():
     # El prompt NO debe contener "No disponible" como cargo
     assert "No disponible" not in captured_prompt or "Cargo:" not in captured_prompt.split("No disponible")[0][-20:], \
         "El prompt envió 'No disponible' como cargo al LLM"
+
+
+# =============================================================================
+# TEST 19: Corporate scraper extrae meta tags de SPAs
+# =============================================================================
+def test_corporate_extracts_meta_from_spa():
+    """El corporate scraper debe extraer meta description/og tags de páginas SPA con body vacío."""
+    scraper = CorporateSiteScraper()
+    soup = BeautifulSoup(MOCK_SPA_HOMEPAGE, "html.parser")
+
+    item = scraper._extract_page_content(soup, "https://www.copec.cl/")
+
+    assert item is not None, "Debería extraer contenido de meta tags aunque el body esté vacío"
+    assert "combustibles" in item.snippet.lower() or "distribuidora" in item.snippet.lower(), \
+        f"Meta description no extraída: {item.snippet}"
+    assert "Copec" in item.title, f"Title no extraído: {item.title}"

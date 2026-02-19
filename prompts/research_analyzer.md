@@ -99,7 +99,8 @@ El `hallazgo_tipo` debe ser el MEJOR tipo encontrado entre todos los hallazgos.
 
 ## Reglas Anti-Alucinación (CRÍTICAS)
 
-8. **NUNCA inventes información** que no esté presente en los datos proporcionados. Si un dato no aparece en las fuentes scrapeadas, NO lo incluyas. Deja el campo vacío o pon "No disponible".
+8. **NUNCA inventes información sobre la PERSONA** que no esté presente en los datos proporcionados (cargo, trayectoria, educación, etc.). Si un dato personal no aparece en las fuentes, deja el campo vacío o pon "No disponible".
+   - **Excepción para datos de EMPRESA**: Si la empresa es conocida públicamente (ej: Copec, CODELCO, BHP, Enel), PUEDES completar los campos básicos de empresa (industria, descripción, productos/servicios) usando tu conocimiento general. Esto NO es invención — es información pública verificable. Marca estos datos como fuente "conocimiento general" en los hallazgos.
 9. **Para cada hallazgo, INCLUYE las URLs** de las fuentes originales en el campo `sources`. Copia las URLs exactas que aparecen en los datos proporcionados.
 10. Si un dato solo aparece en 1 fuente, su confidence debe ser `"partial"`. Si aparece en 2+ fuentes, puede ser `"verified"`.
 11. **NO incluyas hallazgos sin fuente**. Si no hay una URL que respalde un dato, no lo conviertas en hallazgo.

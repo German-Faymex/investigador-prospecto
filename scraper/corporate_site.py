@@ -134,21 +134,66 @@ class CorporateSiteScraper(BaseScraper):
         return items
 
     def _extract_page_content(self, soup: BeautifulSoup, url: str) -> ScrapedItem | None:
-        """Extraer contenido de texto de una página HTML."""
+        """Extraer contenido de texto de una página HTML, incluyendo meta tags."""
+        # 1. Extraer meta tags ANTES de strip (sobreviven SPAs)
+        title_tag = soup.find("title")
+        title = title_tag.get_text(strip=True) if title_tag else url
+
+        meta_parts = []
+        meta_desc = soup.find("meta", {"name": "description"})
+        if meta_desc and meta_desc.get("content"):
+            meta_parts.append(meta_desc["content"])
+        og_desc = soup.find("meta", {"property": "og:description"})
+        if og_desc and og_desc.get("content") and og_desc["content"] not in meta_parts:
+            meta_parts.append(og_desc["content"])
+        og_title = soup.find("meta", {"property": "og:title"})
+        if og_title and og_title.get("content"):
+            meta_parts.append(og_title["content"])
+
+        # JSON-LD (datos estructurados de la empresa)
+        ld_script = soup.find("script", type="application/ld+json")
+        if ld_script:
+            try:
+                import json
+                ld_data = json.loads(ld_script.string or "")
+                if isinstance(ld_data, dict):
+                    ld_bits = []
+                    for key in ("name", "description", "industry", "numberOfEmployees", "foundingDate", "address"):
+                        val = ld_data.get(key)
+                        if val and isinstance(val, str):
+                            ld_bits.append(f"{key}: {val}")
+                        elif val and isinstance(val, dict):
+                            ld_bits.append(f"{key}: {val.get('name', val.get('value', str(val)))}")
+                    if ld_bits:
+                        meta_parts.append(" | ".join(ld_bits))
+                elif isinstance(ld_data, list):
+                    for item in ld_data[:2]:
+                        if isinstance(item, dict) and item.get("description"):
+                            meta_parts.append(item["description"])
+            except Exception:
+                pass
+
+        # 2. Extraer body text
         for tag in soup(["script", "style", "nav", "footer", "header"]):
             tag.decompose()
 
-        text = soup.get_text(separator=" ", strip=True)
-        text = " ".join(text.split())[:1000]
+        body_text = soup.get_text(separator=" ", strip=True)
+        body_text = " ".join(body_text.split())[:1000]
+
+        # 3. Combinar meta + body
+        meta_text = " | ".join(meta_parts) if meta_parts else ""
+        if meta_text and body_text:
+            text = f"{meta_text}. {body_text}"
+        elif meta_text:
+            text = meta_text
+        else:
+            text = body_text
 
         if len(text) > 50:
-            title_tag = soup.find("title")
-            title = title_tag.get_text(strip=True) if title_tag else url
-
             return ScrapedItem(
                 url=url,
                 title=title,
-                snippet=text,
+                snippet=text[:1500],
                 source="corporate",
             )
         return None
