@@ -1,4 +1,4 @@
-"""Ejecuta los 4 scrapers con stagger para evitar rate limiting."""
+"""Ejecuta los 4 scrapers en paralelo."""
 import asyncio
 
 from scraper.google_search import GoogleSearchScraper
@@ -10,22 +10,25 @@ from scraper.base import BaseScraper, ScrapedItem
 
 class ScraperOrchestrator:
     def __init__(self):
+        self.linkedin_scraper = LinkedInScraper()
+        self.corporate_scraper = CorporateSiteScraper()
+        self.google_scraper = GoogleSearchScraper()
+        self.news_scraper = GoogleNewsScraper()
         self.scrapers = [
-            LinkedInScraper(),
-            CorporateSiteScraper(),
-            GoogleSearchScraper(),
-            GoogleNewsScraper(),
+            self.linkedin_scraper,
+            self.corporate_scraper,
+            self.google_scraper,
+            self.news_scraper,
         ]
 
-    async def search_all(self, name: str, company: str, role: str = "", location: str = "") -> list[ScrapedItem]:
-        """Ejecuta scrapers con stagger de 1s entre cada uno para evitar rate limiting."""
-        async def run_with_delay(scraper, delay):
-            if delay > 0:
-                await asyncio.sleep(delay)
-            return await scraper.search(name, company, role, location)
+    @property
+    def discovered_domain(self) -> str | None:
+        """Dominio corporativo descubierto durante el scraping."""
+        return self.corporate_scraper.discovered_domain
 
-        # Stagger: LinkedIn y Corporate arrancan inmediato, Google Search a 1s, Google News a 2s
-        tasks = [run_with_delay(s, i * 1.0) for i, s in enumerate(self.scrapers)]
+    async def search_all(self, name: str, company: str, role: str = "", location: str = "") -> list[ScrapedItem]:
+        """Ejecuta todos los scrapers en paralelo y combina resultados."""
+        tasks = [s.search(name, company, role, location) for s in self.scrapers]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         all_items = []
@@ -38,7 +41,6 @@ class ScraperOrchestrator:
 
         print(f"[Orchestrator] Total: {len(all_items)} resultados combinados")
 
-        # Limpiar cliente compartido al finalizar
         await BaseScraper.cleanup()
 
         return all_items

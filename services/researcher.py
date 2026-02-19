@@ -59,7 +59,8 @@ class ResearchService:
 
                 if verified_facts:
                     # 4. Construir contexto para el LLM con datos scrapeados
-                    context = self._build_llm_context(name, company, role, verified_facts, location)
+                    corporate_domain = self.orchestrator.discovered_domain
+                    context = self._build_llm_context(name, company, role, verified_facts, location, corporate_domain)
                     system_prompt = self._load_prompt("research_analyzer.md")
                     llm_response = await self.llm.complete(system_prompt, context)
                     result.llm_used = llm_response.model_used
@@ -72,6 +73,9 @@ class ResearchService:
                         result.hallazgo_tipo = parsed.get("hallazgo_tipo", "D")
                         result.score = parsed.get("score", 0)
                         result.cargo_descubierto = parsed.get("cargo_descubierto", role)
+                        # Asegurar que sitio_web viene del dominio descubierto
+                        if corporate_domain and not result.empresa.get("sitio_web"):
+                            result.empresa["sitio_web"] = corporate_domain
                         return result
 
             # Fallback: si no hay datos de scraping, investigar directo con LLM
@@ -190,7 +194,7 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
 
         return result
 
-    def _build_llm_context(self, name: str, company: str, role: str, facts, location: str = "") -> str:
+    def _build_llm_context(self, name: str, company: str, role: str, facts, location: str = "", corporate_domain: str = "") -> str:
         """Construir el user prompt con los hechos verificados."""
         lines = [
             f"## Prospecto a investigar",
@@ -198,10 +202,10 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
             f"- Empresa: {company}",
             f"- Cargo conocido: {role or 'No especificado'}",
             f"- Ubicacion: {location or 'No especificada'}",
-            "",
-            "## Datos recopilados y verificados",
-            "",
         ]
+        if corporate_domain:
+            lines.append(f"- Sitio web corporativo: {corporate_domain}")
+        lines.extend(["", "## Datos recopilados y verificados", ""])
 
         for i, fact in enumerate(facts, 1):
             if fact.confidence == "discarded":

@@ -16,22 +16,23 @@ Responde ÚNICAMENTE con un JSON válido (sin markdown, sin texto adicional):
 {
   "persona": {
     "nombre": "Nombre completo",
-    "cargo": "Cargo actual",
+    "cargo": "Cargo actual (SOLO si aparece en los datos)",
     "empresa": "Empresa actual",
-    "linkedin": "URL de LinkedIn si disponible",
-    "trayectoria": "Resumen breve de trayectoria profesional",
-    "educacion": "Educación si disponible",
-    "intereses": "Intereses profesionales detectados",
-    "ubicacion": "Ciudad/País si disponible"
+    "linkedin": "URL de LinkedIn si disponible en los datos",
+    "trayectoria": "Resumen de trayectoria SOLO con datos de las fuentes proporcionadas",
+    "educacion": "Educación SOLO si aparece en los datos",
+    "intereses": "Intereses profesionales detectados en los datos",
+    "ubicacion": "Ciudad/País si disponible en los datos"
   },
   "empresa": {
     "nombre": "Nombre de la empresa",
     "industria": "Industria/sector",
     "tamaño": "Tamaño aproximado si disponible",
-    "descripcion": "Descripción breve del negocio",
-    "noticias_recientes": "Noticias o eventos recientes relevantes",
-    "productos_servicios": "Productos o servicios principales",
-    "presencia": "Presencia geográfica/mercados"
+    "descripcion": "Descripción breve del negocio basada en los datos",
+    "noticias_recientes": "Noticias o eventos recientes SI aparecen en los datos",
+    "productos_servicios": "Productos o servicios principales encontrados en los datos",
+    "presencia": "Presencia geográfica/mercados",
+    "sitio_web": "URL del sitio web corporativo si fue proporcionada"
   },
   "hallazgos": [
     {
@@ -43,7 +44,7 @@ Responde ÚNICAMENTE con un JSON válido (sin markdown, sin texto adicional):
   ],
   "hallazgo_tipo": "A|B|C|D",
   "score": 0,
-  "cargo_descubierto": "Cargo si fue descubierto durante la investigación"
+  "cargo_descubierto": "Cargo si fue descubierto en los datos (ej: desde LinkedIn o sitio web)"
 }
 ```
 
@@ -89,12 +90,15 @@ El `hallazgo_tipo` debe ser el MEJOR tipo encontrado entre todos los hallazgos.
 3. Los datos "verified" pesan más que los "partial"
 4. Si hay contradicciones entre fuentes, menciónalo en el hallazgo
 5. El score final debe reflejar la calidad y frescura de la información encontrada
-6. **Relevancia geográfica**: Si se proporciona ubicación del prospecto, prioriza hallazgos de esa región. Penaliza noticias de regiones distintas.
+6. **Relevancia geográfica**: Si se proporciona ubicación del prospecto, prioriza hallazgos de esa región
+7. Si se proporciona "Sitio web corporativo", SIEMPRE inclúyelo en empresa.sitio_web
 
 ## Reglas Anti-Alucinación (CRÍTICAS)
 
-7. **NUNCA inventes información** que no esté presente en los datos proporcionados. Si un dato no aparece en las fuentes scrapeadas, NO lo incluyas.
-8. **Para cada hallazgo, INCLUYE las URLs** de las fuentes originales en el campo `sources`. Copia las URLs exactas que aparecen en los datos proporcionados.
-9. Si un dato solo aparece en 1 fuente, su confidence debe ser `"partial"`. Si aparece en 2+ fuentes, puede ser `"verified"`.
-10. **NO incluyas hallazgos sin fuente**. Si no hay una URL que respalde un dato, no lo conviertas en hallazgo.
-11. No inventes noticias, montos, contratos, fechas ni logros que no estén explícitamente en los datos scrapeados.
+8. **NUNCA inventes información** que no esté presente en los datos proporcionados. Si un dato no aparece en las fuentes scrapeadas, NO lo incluyas. Deja el campo vacío o pon "No disponible".
+9. **Para cada hallazgo, INCLUYE las URLs** de las fuentes originales en el campo `sources`. Copia las URLs exactas que aparecen en los datos proporcionados.
+10. Si un dato solo aparece en 1 fuente, su confidence debe ser `"partial"`. Si aparece en 2+ fuentes, puede ser `"verified"`.
+11. **NO incluyas hallazgos sin fuente**. Si no hay una URL que respalde un dato, no lo conviertas en hallazgo.
+12. No inventes noticias, montos, contratos, fechas ni logros que no estén explícitamente en los datos scrapeados.
+13. **Números del sitio web corporativo**: Si el sitio web de la empresa menciona cifras (ej: "+89500 proyectos"), cítalos tal cual con "según su sitio web" y la URL fuente. NO los presentes como hechos verificados independientemente.
+14. **Datos de LinkedIn**: Si los datos incluyen información de LinkedIn (cargo, experiencia, educación, ubicación), ÚSALOS para llenar los campos de persona. La fuente LinkedIn es valiosa para datos personales.
