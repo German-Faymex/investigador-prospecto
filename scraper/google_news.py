@@ -9,8 +9,8 @@ class GoogleNewsScraper(BaseScraper):
 
     BASE_URL = "https://www.google.com/search"
 
-    async def search(self, name: str, company: str, role: str = "") -> list[ScrapedItem]:
-        query = f'"{company}" {name}'
+    async def search(self, name: str, company: str, role: str = "", location: str = "") -> list[ScrapedItem]:
+        query = f'"{company}" {name} {location}'.strip() if location else f'"{company}" {name}'
 
         params = {
             "q": query,

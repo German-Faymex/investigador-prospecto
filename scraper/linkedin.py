@@ -9,7 +9,14 @@ class LinkedInScraper(BaseScraper):
 
     BASE_URL = "https://www.google.com/search"
 
-    async def search(self, name: str, company: str, role: str = "") -> list[ScrapedItem]:
+    @staticmethod
+    def build_search_url(name: str, company: str) -> str:
+        """Build a LinkedIn people search URL for the prospect."""
+        from urllib.parse import quote_plus
+        keywords = quote_plus(f"{name} {company}")
+        return f"https://www.linkedin.com/search/results/people/?keywords={keywords}"
+
+    async def search(self, name: str, company: str, role: str = "", location: str = "") -> list[ScrapedItem]:
         query = f'site:linkedin.com/in/ "{name}" "{company}"'
 
         params = {

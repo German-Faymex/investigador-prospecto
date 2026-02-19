@@ -24,6 +24,8 @@ class ResearchResult:
     llm_used: str = "unknown"
     error: Optional[str] = None
     raw_sources: list[dict] = field(default_factory=list)
+    linkedin_search_url: str = ""
+    location: str = ""
 
 
 class ResearchService:
@@ -32,14 +34,18 @@ class ResearchService:
         self.verifier = Verifier()
         self.llm = LLMClient()
 
-    async def investigate(self, name: str, company: str, role: str = "") -> ResearchResult:
+    async def investigate(self, name: str, company: str, role: str = "", location: str = "") -> ResearchResult:
         """Pipeline completo: scrape → verify → LLM analysis → structured result."""
+        from scraper.linkedin import LinkedInScraper
+
         result = ResearchResult()
+        result.linkedin_search_url = LinkedInScraper.build_search_url(name, company)
+        result.location = location
 
         try:
             # 1. Scrape all sources in parallel
             print(f"[Research] Investigando: {name} @ {company}")
-            items = await self.orchestrator.search_all(name, company, role)
+            items = await self.orchestrator.search_all(name, company, role, location)
 
             if items:
                 # 2. Guardar fuentes raw
@@ -53,7 +59,7 @@ class ResearchService:
 
                 if verified_facts:
                     # 4. Construir contexto para el LLM con datos scrapeados
-                    context = self._build_llm_context(name, company, role, verified_facts)
+                    context = self._build_llm_context(name, company, role, verified_facts, location)
                     system_prompt = self._load_prompt("research_analyzer.md")
                     llm_response = await self.llm.complete(system_prompt, context)
                     result.llm_used = llm_response.model_used
@@ -70,7 +76,9 @@ class ResearchService:
 
             # Fallback: si no hay datos de scraping, investigar directo con LLM
             print("[Research] Sin datos de scraping, usando LLM directo como fallback")
-            result = await self._llm_direct_research(name, company, role)
+            result = await self._llm_direct_research(name, company, role, location)
+            result.linkedin_search_url = LinkedInScraper.build_search_url(name, company)
+            result.location = location
 
         except Exception as e:
             result.error = str(e)
@@ -78,7 +86,7 @@ class ResearchService:
 
         return result
 
-    async def _llm_direct_research(self, name: str, company: str, role: str = "") -> ResearchResult:
+    async def _llm_direct_research(self, name: str, company: str, role: str = "", location: str = "") -> ResearchResult:
         """Fallback: investigar usando solo el conocimiento del LLM (sin scraping)."""
         from datetime import datetime, timedelta
 
@@ -159,19 +167,24 @@ REGLAS DE SCORE:
 
 Si no tienes informacion especifica, se honesto y asigna hallazgo_tipo="D" con score bajo."""
 
+        location_instruction = ""
+        if location:
+            location_instruction = f"\n6. PRIORIZA noticias e informacion relevante para la region de {location}. Penaliza hallazgos de regiones distintas."
+
         user_prompt = f"""Investiga al siguiente prospecto usando tu conocimiento:
 
 PROSPECTO:
 - Nombre: {name}
 - Cargo: {role or 'No especificado'}
 - Empresa: {company}
+- Ubicacion: {location or 'No especificada'}
 
 INSTRUCCIONES:
 1. Busca en tu conocimiento informacion ESPECIFICA sobre esta persona y empresa
 2. Prioriza noticias de inversion, expansion o nuevos proyectos
 3. Si conoces algun logro del ejecutivo, mencionalo
 4. Los hallazgos deben tener DATOS CONCRETOS, no generalidades
-5. Si no tienes informacion especifica, se honesto y asigna hallazgo_tipo="D" con score bajo
+5. Si no tienes informacion especifica, se honesto y asigna hallazgo_tipo="D" con score bajo{location_instruction}
 
 Responde SOLO con el JSON estructurado, sin texto adicional."""
 
@@ -192,13 +205,14 @@ Responde SOLO con el JSON estructurado, sin texto adicional."""
 
         return result
 
-    def _build_llm_context(self, name: str, company: str, role: str, facts) -> str:
+    def _build_llm_context(self, name: str, company: str, role: str, facts, location: str = "") -> str:
         """Construir el user prompt con los hechos verificados."""
         lines = [
             f"## Prospecto a investigar",
             f"- Nombre: {name}",
             f"- Empresa: {company}",
             f"- Cargo conocido: {role or 'No especificado'}",
+            f"- Ubicacion: {location or 'No especificada'}",
             "",
             "## Datos recopilados y verificados",
             "",

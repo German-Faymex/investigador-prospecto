@@ -15,7 +15,7 @@ class CorporateSiteScraper(BaseScraper):
 
     BASE_URL = "https://www.google.com/search"
 
-    async def search(self, name: str, company: str, role: str = "") -> list[ScrapedItem]:
+    async def search(self, name: str, company: str, role: str = "", location: str = "") -> list[ScrapedItem]:
         # Primero buscar el sitio web de la empresa
         domain = await self._find_company_domain(company)
         items = []

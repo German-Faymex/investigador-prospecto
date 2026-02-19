@@ -78,6 +78,14 @@
                         <span class="text-gray-400 text-xs uppercase tracking-wide">Nombre</span>
                         <p class="font-semibold text-faymex-dark text-base">{{ result.persona.get('nombre_completo', result.persona.get('nombre', name)) }}</p>
                     </div>
+                    {% if result.linkedin_search_url %}
+                    <div>
+                        <a href="{{ result.linkedin_search_url }}" target="_blank" rel="noopener"
+                           class="text-blue-600 hover:underline text-sm flex items-center gap-1">
+                            &#128279; Buscar en LinkedIn
+                        </a>
+                    </div>
+                    {% endif %}
                     <div>
                         <span class="text-gray-400 text-xs uppercase tracking-wide">Cargo</span>
                         <div class="flex items-center gap-1.5">
@@ -140,17 +148,6 @@
                             {% for exp in result.persona.experiencia_previa %}
                             <p class="text-gray-700 text-sm">&#8226; {{ exp }}</p>
                             {% endfor %}
-                        {% endif %}
-                    </div>
-                    {% endif %}
-                    {% if result.persona.get('linkedin_url') or result.persona.get('linkedin') %}
-                    <div>
-                        {% set linkedin_url = result.persona.get('linkedin_url', result.persona.get('linkedin', '')) %}
-                        {% if linkedin_url and linkedin_url.startswith('http') %}
-                        <a href="{{ linkedin_url }}" target="_blank" rel="noopener"
-                           class="text-blue-600 hover:underline text-sm flex items-center gap-1">
-                            &#128279; LinkedIn
-                        </a>
                         {% endif %}
                     </div>
                     {% endif %}
@@ -272,6 +269,14 @@
                         <span class="text-gray-400 text-xs uppercase tracking-wide">Empresa</span>
                         <p class="font-semibold text-faymex-dark text-base">{{ result.empresa.get('nombre', company) }}</p>
                     </div>
+                    {% if result.empresa.get('sitio_web') %}
+                    <div>
+                        <a href="{{ result.empresa.sitio_web }}" target="_blank" rel="noopener"
+                           class="text-blue-600 hover:underline text-sm flex items-center gap-1">
+                            &#127760; {{ result.empresa.sitio_web }}
+                        </a>
+                    </div>
+                    {% endif %}
                     <div>
                         <span class="text-gray-400 text-xs uppercase tracking-wide">Industria</span>
                         <div class="flex items-center gap-1.5">
@@ -335,18 +340,18 @@
                         {% endif %}
                     </div>
                     {% endif %}
-                    {% if result.empresa.get('sitio_web') %}
-                    <div>
-                        <a href="{{ result.empresa.sitio_web }}" target="_blank" rel="noopener"
-                           class="text-blue-600 hover:underline text-sm flex items-center gap-1">
-                            &#127760; {{ result.empresa.sitio_web }}
-                        </a>
-                    </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
 
+    </div>
+
+    <!-- Boton Nueva Investigacion (fondo) -->
+    <div class="mt-6 flex justify-center">
+        <button type="button" onclick="resetPage()"
+                class="px-6 py-2.5 border-2 border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors font-medium text-sm flex items-center gap-2">
+            <span>&#128260; Nueva Investigacion</span>
+        </button>
     </div>
 </div>
 

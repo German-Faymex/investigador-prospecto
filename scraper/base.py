@@ -29,7 +29,7 @@ class BaseScraper(ABC):
         }
 
     @abstractmethod
-    async def search(self, name: str, company: str, role: str = "") -> list[ScrapedItem]:
+    async def search(self, name: str, company: str, role: str = "", location: str = "") -> list[ScrapedItem]:
         """Buscar información sobre un prospecto."""
         ...
 

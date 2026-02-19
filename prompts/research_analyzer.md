@@ -89,3 +89,4 @@ El `hallazgo_tipo` debe ser el MEJOR tipo encontrado entre todos los hallazgos.
 3. Los datos "verified" pesan más que los "partial"
 4. Si hay contradicciones entre fuentes, menciónalo en el hallazgo
 5. El score final debe reflejar la calidad y frescura de la información encontrada
+6. **Relevancia geográfica**: Si se proporciona ubicación del prospecto, prioriza hallazgos de esa región. Penaliza noticias de regiones distintas.

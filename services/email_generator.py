@@ -53,6 +53,8 @@ class EmailGenerator:
         user_prompt = user_prompt.replace("{hallazgo_descripcion}", hallazgo_desc)
         user_prompt = user_prompt.replace("{sender_name}", sender_name)
         user_prompt = user_prompt.replace("{sender_company}", sender_company)
+        location = getattr(research, 'location', '') or ''
+        user_prompt = user_prompt.replace("{location}", location)
 
         # Llamar al LLM
         llm_response = await self.llm.complete(system_prompt, user_prompt)
@@ -60,6 +62,7 @@ class EmailGenerator:
         # Parsear respuesta JSON
         parsed = self._parse_response(llm_response.content)
         if parsed:
+            parsed = self._fix_email_closing(parsed, sender_name)
             return EmailResult(
                 subject=parsed.get("asunto", ""),
                 body_html=parsed.get("cuerpo_html", ""),
@@ -113,6 +116,20 @@ class EmailGenerator:
             return path.read_text(encoding="utf-8")
         print(f"[EmailGen] Prompt no encontrado: {path}")
         return ""
+
+    def _fix_email_closing(self, parsed: dict, sender_name: str) -> dict:
+        """Fix spacing if LLM omits linebreak in closing."""
+        html = parsed.get("cuerpo_html", "")
+        if html:
+            parsed["cuerpo_html"] = re.sub(
+                r"Quedo atento,\s*(?!<br)" + re.escape(sender_name),
+                f"Quedo atento,<br>{sender_name}", html)
+        text = parsed.get("cuerpo_texto", "")
+        if text:
+            parsed["cuerpo_texto"] = re.sub(
+                r"Quedo atento,\s*(?!\n)" + re.escape(sender_name),
+                f"Quedo atento,\n{sender_name}", text)
+        return parsed
 
     def _parse_response(self, text: str) -> Optional[dict]:
         """Extraer JSON de la respuesta."""

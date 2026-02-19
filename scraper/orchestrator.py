@@ -17,9 +17,9 @@ class ScraperOrchestrator:
             CorporateSiteScraper(),
         ]
 
-    async def search_all(self, name: str, company: str, role: str = "") -> list[ScrapedItem]:
+    async def search_all(self, name: str, company: str, role: str = "", location: str = "") -> list[ScrapedItem]:
         """Ejecuta todos los scrapers en paralelo y combina resultados."""
-        tasks = [s.search(name, company, role) for s in self.scrapers]
+        tasks = [s.search(name, company, role, location) for s in self.scrapers]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         all_items = []

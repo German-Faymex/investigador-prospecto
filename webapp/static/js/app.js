@@ -196,6 +196,34 @@ function fallbackCopy(text) {
     document.body.removeChild(textarea);
 }
 
+// --- Reset Page ---
+function resetPage() {
+    // Clear form fields
+    var form = document.getElementById('research-form');
+    if (form) form.reset();
+
+    // Empty results area
+    var results = document.getElementById('research-results');
+    if (results) results.innerHTML = '';
+
+    // Reset step indicator to step 1
+    updateStepIndicator(1);
+
+    // Hide reset button
+    var resetBtn = document.getElementById('reset-btn');
+    if (resetBtn) {
+        resetBtn.classList.add('hidden');
+        resetBtn.classList.remove('flex');
+    }
+
+    // Scroll to top and focus first field
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(function() {
+        var firstInput = form ? form.querySelector('input[name="name"]') : null;
+        if (firstInput) firstInput.focus();
+    }, 300);
+}
+
 // --- Stop Research ---
 var activeXhr = null;
 
@@ -242,6 +270,13 @@ document.addEventListener('htmx:afterSwap', function(event) {
         stopBtn.classList.remove('flex');
     }
     activeXhr = null;
+
+    // Show reset button when results arrive
+    var resetBtn = document.getElementById('reset-btn');
+    if (resetBtn && event.detail.target && event.detail.target.id === 'research-results') {
+        resetBtn.classList.remove('hidden');
+        resetBtn.classList.add('flex');
+    }
 
     if (event.detail.target) {
         setTimeout(function() {

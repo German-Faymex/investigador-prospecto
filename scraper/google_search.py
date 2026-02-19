@@ -11,7 +11,7 @@ class GoogleSearchScraper(BaseScraper):
 
     BASE_URL = "https://www.google.com/search"
 
-    async def search(self, name: str, company: str, role: str = "") -> list[ScrapedItem]:
+    async def search(self, name: str, company: str, role: str = "", location: str = "") -> list[ScrapedItem]:
         query_parts = [f'"{name}"', f'"{company}"']
         if role:
             query_parts.append(role)

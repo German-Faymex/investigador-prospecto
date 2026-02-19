@@ -16,7 +16,8 @@ async def do_research(
     request: Request,
     name: str = Form(...),
     company: str = Form(...),
-    role: str = Form(""),
+    role: str = Form(...),
+    location: str = Form(""),
 ):
     """Execute prospect research, auto-generate email, and return HTML partial."""
     try:
@@ -24,7 +25,7 @@ async def do_research(
         from services.email_generator import EmailGenerator
 
         service = ResearchService()
-        result = await service.investigate(name, company, role)
+        result = await service.investigate(name, company, role, location)
 
         if result.error and result.score == 0:
             return templates.TemplateResponse(
