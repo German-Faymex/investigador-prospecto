@@ -29,25 +29,39 @@ uvicorn webapp.app:app --reload --port 8000
 ## Estructura del proyecto
 
 ```
-├── main.py                 # Entrypoint
+├── main.py                 # Entrypoint (uvicorn)
 ├── Procfile                # Railway deploy
 ├── requirements.txt        # Dependencias
+├── CHANGELOG.md            # Historial de cambios
 ├── config/
 │   └── settings.py         # Configuración centralizada (singleton)
 ├── scraper/
-│   ├── google.py           # Scraper de Google
-│   ├── linkedin.py         # Scraper de LinkedIn
-│   └── website.py          # Scraper de sitios web
+│   ├── base.py             # BaseScraper ABC + ScrapedItem dataclass
+│   ├── google_search.py    # Scraper de búsqueda general Google
+│   ├── google_news.py      # Scraper de Google News (últimos 6 meses)
+│   ├── linkedin.py         # Scraper de LinkedIn vía Google + build_search_url()
+│   ├── corporate_site.py   # Scraper de sitios web corporativos
+│   └── orchestrator.py     # Ejecuta los 4 scrapers en paralelo
 ├── services/
-│   ├── llm_client.py       # Cliente LLM híbrido (DeepSeek/Haiku)
-│   ├── research.py         # Orquestador de investigación
-│   └── email_generator.py  # Generador de emails
+│   ├── llm_client.py       # Cliente LLM híbrido (DeepSeek → Haiku fallback)
+│   ├── researcher.py       # Orquestador: scrape → verify → LLM → ResearchResult
+│   ├── verifier.py         # Verificación cruzada de fuentes + scoring
+│   └── email_generator.py  # Generador de emails SMTYKM
 ├── prompts/
-│   └── templates.py        # Prompts para LLMs
+│   ├── research_analyzer.md  # Prompt de análisis de investigación
+│   ├── email_generator.md    # Prompt de generación de email
+│   └── smtykm_system.md     # Metodología SMTYKM completa
 ├── webapp/
-│   ├── app.py              # FastAPI app + rutas
-│   ├── static/             # CSS, JS
-│   └── templates/          # Jinja2 HTML templates
+│   ├── app.py              # FastAPI app + ruta raíz
+│   ├── routers/
+│   │   ├── research.py     # POST /api/research
+│   │   └── emails.py       # POST /api/email/generate
+│   ├── static/js/
+│   │   └── app.js          # Frontend JS (HTMX handlers, Quill, reset)
+│   └── templates/
+│       ├── base.html       # Layout base
+│       ├── index.html      # Página principal (formulario)
+│       └── partials/       # Fragmentos HTMX (research_result, loading, error, email_editor)
 └── tests/                  # Tests
 ```
 
@@ -66,10 +80,13 @@ uvicorn webapp.app:app --reload --port 8000
 
 ## Patrones clave
 
-- **Scrapers async**: Todos los scrapers usan httpx async para paralelismo
-- **LLM híbrido**: DeepSeek para análisis principal, Haiku para verificación
-- **Sistema de verificación**: Score de calidad de la investigación (min 40/100)
+- **Scrapers async**: Todos los scrapers heredan de `BaseScraper` y usan httpx async para paralelismo. Signature estándar: `search(name, company, role="", location="")`
+- **LLM híbrido**: DeepSeek para análisis principal, Haiku como fallback
+- **Sistema de verificación**: Score de calidad (0-100) basado en cruce de fuentes
 - **Config singleton**: `from config.settings import get_settings`
+- **LinkedIn search URL**: Se genera siempre una URL de búsqueda en LinkedIn (no perfil directo) via `LinkedInScraper.build_search_url()`
+- **Match geográfico**: El campo `location` fluye desde formulario → router → orchestrator → scrapers → LLM prompts → email generator
+- **Email post-processing**: `_fix_email_closing()` asegura salto de línea entre "Quedo atento," y el nombre
 
 ## Deploy (Railway)
 
