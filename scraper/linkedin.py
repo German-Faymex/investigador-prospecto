@@ -1,5 +1,7 @@
 """Scraper de LinkedIn vía Google/DuckDuckGo."""
 import json
+import re
+import unicodedata
 
 from bs4 import BeautifulSoup
 
@@ -29,6 +31,17 @@ class LinkedInScraper(BaseScraper):
             print("[LinkedInScraper] Google sin resultados, intentando DuckDuckGo")
             ddg_query = f'{name} {company} site:linkedin.com/in/'
             items = await self._search_duckduckgo(ddg_query)
+
+        # Fallback: DDG sin restricción site: (más flexible)
+        if not items:
+            print("[LinkedInScraper] DDG con site: sin resultados, intentando sin restricción")
+            ddg_query = f'{name} {company} linkedin perfil'
+            items = await self._search_duckduckgo(ddg_query)
+
+        # Último recurso: intentar URLs directas de perfil LinkedIn
+        if not items:
+            print("[LinkedInScraper] Buscadores sin resultados, intentando URLs directas")
+            items = await self._try_direct_profile(name)
 
         # Enriquecer con datos del perfil público
         if items:
@@ -110,6 +123,80 @@ class LinkedInScraper(BaseScraper):
                 break
 
         return items
+
+    @staticmethod
+    def _name_to_slugs(name: str) -> list[str]:
+        """Convertir nombre a posibles slugs de LinkedIn URL."""
+        # Remover acentos: "Saltrón" → "Saltron"
+        normalized = unicodedata.normalize("NFKD", name)
+        normalized = "".join(c for c in normalized if not unicodedata.combining(c))
+        normalized = normalized.lower().strip()
+        normalized = re.sub(r"[^a-z\s]", "", normalized)
+        parts = normalized.split()
+        if len(parts) < 2:
+            return []
+
+        slugs = []
+        # nombre-apellido1-apellido2 (full)
+        slugs.append("-".join(parts))
+        # nombre-apellido1 (sin segundo apellido)
+        if len(parts) >= 3:
+            slugs.append(f"{parts[0]}-{parts[1]}")
+        # Variantes con prefijo de país
+        for prefix in ["", "cl."]:
+            for slug in list(slugs):
+                if prefix:
+                    slugs.append(slug)  # Ya está sin prefijo
+        return list(dict.fromkeys(slugs))  # Dedup preservando orden
+
+    async def _try_direct_profile(self, name: str) -> list[ScrapedItem]:
+        """Último recurso: construir URLs de LinkedIn del nombre y hacer fetch directo."""
+        slugs = self._name_to_slugs(name)
+        if not slugs:
+            return []
+
+        for slug in slugs[:3]:  # Máximo 3 intentos
+            for domain in ["www.linkedin.com", "cl.linkedin.com"]:
+                url = f"https://{domain}/in/{slug}"
+                try:
+                    html = await self._make_request(url)
+                    if not html or len(html) < 500:
+                        continue
+
+                    # Detectar authwall
+                    if "authwall" in html.lower() or "sign-in" in html[:2000].lower():
+                        print(f"[LinkedInScraper] Authwall en perfil directo: {url}")
+                        return []  # LinkedIn bloquea, no intentar más
+
+                    soup = BeautifulSoup(html, "html.parser")
+
+                    title_tag = soup.find("title")
+                    title = title_tag.get_text(strip=True) if title_tag else ""
+
+                    # Extraer snippet de meta tags
+                    snippet_parts = []
+                    meta_desc = soup.find("meta", {"name": "description"})
+                    if meta_desc and meta_desc.get("content"):
+                        snippet_parts.append(meta_desc["content"])
+                    og_desc = soup.find("meta", {"property": "og:description"})
+                    if og_desc and og_desc.get("content"):
+                        snippet_parts.append(og_desc["content"])
+
+                    snippet = " | ".join(snippet_parts) if snippet_parts else ""
+
+                    if title or snippet:
+                        print(f"[LinkedInScraper] Perfil directo encontrado: {url}")
+                        return [ScrapedItem(
+                            url=url,
+                            title=title,
+                            snippet=snippet,
+                            source="linkedin",
+                        )]
+
+                except Exception as e:
+                    print(f"[LinkedInScraper] Error en perfil directo {url}: {e}")
+                    continue
+        return []
 
     async def _enrich_with_profile_page(self, items: list[ScrapedItem]) -> list[ScrapedItem]:
         """Intentar fetch de perfil LinkedIn público para datos más ricos. Fallback silencioso si falla."""

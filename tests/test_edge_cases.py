@@ -475,3 +475,100 @@ def test_verifier_title_fallback_for_short_snippet():
     assert len(facts) >= 1, "Item con título útil fue descartado por snippet vacío"
     assert "Roberto Garcia" in facts[0].content or "Gerente" in facts[0].content, \
         f"Title no usado como fallback: {facts[0].content}"
+
+
+# =============================================================================
+# TEST 15: LinkedIn _name_to_slugs genera variantes correctas
+# =============================================================================
+def test_linkedin_name_to_slugs():
+    """Verifica generación de slugs de LinkedIn URL desde nombre."""
+    slugs = LinkedInScraper._name_to_slugs("Germán Saltrón Mellado")
+    assert "german-saltron-mellado" in slugs, f"Slug completo no generado: {slugs}"
+    assert "german-saltron" in slugs, f"Slug corto no generado: {slugs}"
+
+    slugs2 = LinkedInScraper._name_to_slugs("Roberto García")
+    assert "roberto-garcia" in slugs2, f"Slug no generado: {slugs2}"
+
+    # Nombre muy corto → vacío
+    assert LinkedInScraper._name_to_slugs("Juan") == []
+
+
+# =============================================================================
+# TEST 16: LinkedIn _try_direct_profile retorna vacío con authwall
+# =============================================================================
+@pytest.mark.asyncio
+async def test_linkedin_direct_profile_authwall():
+    """Si LinkedIn devuelve authwall en perfil directo, debe retornar vacío."""
+    scraper = LinkedInScraper()
+
+    authwall_html = '<html><body><div class="authwall">Please sign-in</div></body></html>'
+
+    with patch.object(scraper, "_make_request", new_callable=AsyncMock, return_value=authwall_html):
+        result = await scraper._try_direct_profile("Roberto Garcia")
+
+    assert result == [], f"Debería retornar vacío con authwall, obtuvo: {result}"
+
+
+# =============================================================================
+# TEST 17: LinkedIn _try_direct_profile extrae datos de perfil público
+# =============================================================================
+@pytest.mark.asyncio
+async def test_linkedin_direct_profile_public():
+    """Si el perfil es público, debe extraer datos."""
+    scraper = LinkedInScraper()
+
+    profile_html = """
+    <html>
+    <head>
+        <title>Roberto Garcia - Gerente en CODELCO | LinkedIn</title>
+        <meta name="description" content="Roberto Garcia. Gerente de Mantenimiento en CODELCO.">
+    </head>
+    <body><p>""" + "x" * 500 + """</p></body>
+    </html>
+    """
+
+    async def mock_request(url, params=None):
+        if "roberto-garcia" in url:
+            return profile_html
+        return None
+
+    with patch.object(scraper, "_make_request", side_effect=mock_request):
+        result = await scraper._try_direct_profile("Roberto Garcia")
+
+    assert len(result) == 1, f"Debería encontrar 1 perfil, obtuvo {len(result)}"
+    assert "linkedin.com/in/roberto-garcia" in result[0].url
+    assert "Gerente" in result[0].title or "CODELCO" in result[0].title
+
+
+# =============================================================================
+# TEST 18: Email generator limpia "No disponible" del cargo
+# =============================================================================
+@pytest.mark.asyncio
+async def test_email_generator_cleans_no_disponible_cargo():
+    """El email generator no debe pasar 'No disponible' como cargo al LLM."""
+    from services.email_generator import EmailGenerator
+    from services.researcher import ResearchResult
+
+    gen = EmailGenerator()
+
+    research = ResearchResult()
+    research.cargo_descubierto = "No disponible"
+    research.persona = {"nombre": "Test User", "cargo": "No disponible"}
+    research.empresa = {"nombre": "TestCo", "industria": "Mining"}
+    research.hallazgos = [{"content": "Test", "tipo": "C", "confidence": "partial"}]
+    research.hallazgo_tipo = "C"
+    research.raw_sources = []
+
+    # Capturar el prompt que se envía al LLM
+    captured_prompt = None
+    async def mock_complete(system, user):
+        nonlocal captured_prompt
+        captured_prompt = user
+        return MockLLMResponse(content='{"asunto": "Test", "cuerpo_html": "<p>Test</p>", "cuerpo_texto": "Test", "razonamiento": "Test"}')
+
+    with patch.object(gen.llm, "complete", side_effect=mock_complete):
+        await gen.generate(research)
+
+    # El prompt NO debe contener "No disponible" como cargo
+    assert "No disponible" not in captured_prompt or "Cargo:" not in captured_prompt.split("No disponible")[0][-20:], \
+        "El prompt envió 'No disponible' como cargo al LLM"

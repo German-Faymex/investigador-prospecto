@@ -51,6 +51,7 @@ Menciona el hallazgo de forma NATURAL.
 - Demostrar que investigaste al EJECUTIVO, no solo la empresa
 
 **Párrafo 2 - DOLOR específico al cargo (2-3 oraciones):**
+**IMPORTANTE**: Si el campo Cargo está vacío o no fue proporcionado, NO inventes ni adivines un cargo. En ese caso, habla de desafíos generales de la industria/empresa sin mencionar un cargo específico.
 Conecta con un desafío ESPECÍFICO del cargo:
 - Mantenimiento: paradas no programadas, disponibilidad de equipos, costos de mantención
 - Operaciones: continuidad operacional, costos de parada, tiempos muertos

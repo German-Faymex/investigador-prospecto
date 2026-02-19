@@ -43,9 +43,12 @@ class EmailGenerator:
             best = research.hallazgos[0]
             hallazgo_desc = best.get("content", "")
 
-        # Fill template
+        # Fill template - tratar "No disponible" como vacío para evitar que el LLM lo use
+        cargo_raw = research.cargo_descubierto or research.persona.get("cargo", "")
+        cargo = "" if cargo_raw.lower().strip() in ("no disponible", "no encontrado", "no especificado") else cargo_raw
+
         user_prompt = email_template.replace("{nombre}", research.persona.get("nombre", ""))
-        user_prompt = user_prompt.replace("{cargo}", research.cargo_descubierto or research.persona.get("cargo", ""))
+        user_prompt = user_prompt.replace("{cargo}", cargo)
         user_prompt = user_prompt.replace("{empresa}", research.empresa.get("nombre", ""))
         user_prompt = user_prompt.replace("{industria}", research.empresa.get("industria", ""))
         user_prompt = user_prompt.replace("{research_summary}", research_summary)
