@@ -90,7 +90,11 @@ El `hallazgo_tipo` debe ser el MEJOR tipo encontrado entre todos los hallazgos.
 3. Los datos "verified" pesan más que los "partial"
 4. Si hay contradicciones entre fuentes, menciónalo en el hallazgo
 5. El score final debe reflejar la calidad y frescura de la información encontrada
-6. **Relevancia geográfica**: Si se proporciona ubicación del prospecto, prioriza hallazgos de esa región
+6. **Relevancia geográfica (IMPORTANTE para empresas grandes)**:
+   - Si se proporciona ubicación del prospecto, los hallazgos de ESA región o zonas cercanas son los más relevantes.
+   - Para empresas grandes con múltiples operaciones (ej: CODELCO, Anglo American, Enel, BHP), las noticias de OTRAS regiones NO son relevantes para el prospecto. Ejemplo: si el prospecto está en Antofagasta, una noticia de la misma empresa en Rancagua NO le aplica.
+   - **Excepción**: Noticias de impacto corporativo completo SÍ aplican sin importar la región. Ejemplos: cambio de CEO, fusión/adquisición, reporte financiero anual, cambio estratégico global, nuevas políticas empresa-completa.
+   - Si el único hallazgo disponible es de otra región y NO es de impacto corporativo, clasifícalo como tipo D y baja el score.
 7. Si se proporciona "Sitio web corporativo", SIEMPRE inclúyelo en empresa.sitio_web
 
 ## Reglas Anti-Alucinación (CRÍTICAS)

@@ -114,10 +114,11 @@ Faymex es empresa de **servicios de mantenimiento industrial y fabricación de r
 - Contracciones: "de el" → "del", "a el" → "al"
 - 80-120 palabras total (sin contar firma ni PD)
 
-### 4b. RELEVANCIA GEOGRAFICA
-- Solo referencia noticias relevantes para la ubicacion del prospecto
-- NO menciones noticias de regiones distintas
-- Si el unico hallazgo es de otra region, usa enfoque generico de industria
+### 4b. RELEVANCIA GEOGRAFICA (IMPORTANTE para empresas grandes)
+- Solo referencia noticias relevantes para la ubicacion del prospecto o zonas cercanas
+- Para empresas grandes con multiples operaciones (ej: CODELCO, Anglo American, Enel, BHP), las noticias de OTRAS regiones NO son relevantes. Ejemplo: si el prospecto esta en Antofagasta, una noticia de la misma empresa en Rancagua NO le aplica a el.
+- **Excepcion**: Noticias de impacto corporativo completo SI aplican sin importar la region. Ejemplos: cambio de CEO, fusion/adquisicion, reporte financiero, cambio estrategico global.
+- Si el unico hallazgo es de otra region y NO es de impacto corporativo, IGNÓRALO y usa enfoque generico de industria
 
 ### 5. FORMATO HTML OBLIGATORIO
 
