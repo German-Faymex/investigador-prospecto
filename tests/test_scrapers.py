@@ -48,8 +48,13 @@ MOCK_CORPORATE_HTML = """
 <html><body>
 <title>CODELCO - Quienes Somos</title>
 <div>
-    <p>CODELCO es la empresa estatal de cobre de Chile, principal productor mundial.
-    Con operaciones en el norte de Chile, produce mas de 1.5 millones de toneladas anuales.</p>
+    <p>CODELCO es la Corporacion Nacional del Cobre de Chile, la empresa estatal de cobre mas grande del mundo
+    y el principal productor a nivel mundial. Con operaciones en el norte y centro de Chile, produce mas de
+    1.5 millones de toneladas metricas anuales de cobre fino. Fundada en 1976, CODELCO opera las divisiones
+    Chuquicamata, Radomiro Tomic, Ministro Hales, Gabriela Mistral, Salvador, Andina y El Teniente.
+    La empresa emplea a mas de 15,000 trabajadores directos y contribuye significativamente al presupuesto
+    fiscal de Chile. Sus operaciones incluyen mineria a rajo abierto y subterranea, procesamiento de minerales,
+    fundicion y refineria de cobre y subproductos como molibdeno.</p>
 </div>
 </body></html>
 """
@@ -95,15 +100,15 @@ async def test_corporate_scraper():
     scraper = CorporateSiteScraper()
 
     async def mock_request(url, params=None):
-        if "google.com" in url:
-            return '<html><body><div class="g"><a href="https://codelco.com/about"><h3>CODELCO</h3></a></div></body></html>'
-        elif "codelco.com" in url:
+        if "codelco.com" in url or "codelco.cl" in url:
             return MOCK_CORPORATE_HTML
         return None
 
-    with patch.object(scraper, "_make_request", side_effect=mock_request):
+    with patch.object(scraper, "_make_request", side_effect=mock_request), \
+         patch.object(scraper, "_ddg_post", new_callable=AsyncMock, return_value=None):
         results = await scraper.search("Roberto Garcia", "CODELCO")
 
+    assert scraper.discovered_domain is not None
     assert any(r.source == "corporate" for r in results)
 
 
@@ -129,7 +134,7 @@ async def test_google_search_bad_html():
 async def test_orchestrator_parallel():
     orchestrator = ScraperOrchestrator()
 
-    async def mock_search(self, name, company, role=""):
+    async def mock_search(self, name, company, role="", location=""):
         return [ScrapedItem(url="https://test.com", title="Test", snippet="Test data", source=self.__class__.__name__)]
 
     with patch.object(GoogleSearchScraper, "search", mock_search), \
@@ -145,10 +150,10 @@ async def test_orchestrator_parallel():
 async def test_orchestrator_handles_errors():
     orchestrator = ScraperOrchestrator()
 
-    async def mock_error(self, name, company, role=""):
+    async def mock_error(self, name, company, role="", location=""):
         raise Exception("Connection failed")
 
-    async def mock_success(self, name, company, role=""):
+    async def mock_success(self, name, company, role="", location=""):
         return [ScrapedItem(url="https://ok.com", title="OK", snippet="Works", source="test")]
 
     with patch.object(GoogleSearchScraper, "search", mock_error), \
