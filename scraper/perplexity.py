@@ -13,7 +13,12 @@ class PerplexityScraper(BaseScraper):
     API_URL = "https://api.perplexity.ai/chat/completions"
     MODEL = "sonar-pro"
 
+    def __init__(self):
+        super().__init__()
+        self.last_result: dict | None = None  # Datos estructurados de la última búsqueda
+
     async def search(self, name: str, company: str, role: str = "", location: str = "") -> list[ScrapedItem]:
+        self.last_result = None
         api_key = self.settings.perplexity_api_key
         if not api_key:
             return []
@@ -78,7 +83,8 @@ class PerplexityScraper(BaseScraper):
 
             data = response.json()
             content = data["choices"][0]["message"]["content"]
-            return self._parse_response(content, name, company)
+            items = self._parse_response(content, name, company)
+            return items
 
         except Exception as e:
             print(f"[PerplexityScraper] Error: {e}")
@@ -104,6 +110,9 @@ class PerplexityScraper(BaseScraper):
                     source="perplexity",
                 )]
             return []
+
+        # Guardar datos estructurados para enriquecimiento directo
+        self.last_result = data
 
         items = []
 

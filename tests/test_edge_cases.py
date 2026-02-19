@@ -759,3 +759,92 @@ def test_orchestrator_includes_perplexity():
     scraper_types = [type(s).__name__ for s in orchestrator.scrapers]
     assert "PerplexityScraper" in scraper_types, f"PerplexityScraper no encontrado en: {scraper_types}"
     assert len(orchestrator.scrapers) == 5, f"Esperados 5 scrapers, hay {len(orchestrator.scrapers)}"
+
+
+# =============================================================================
+# TEST 25: Perplexity enriquece campos vacíos del resultado
+# =============================================================================
+@pytest.mark.asyncio
+async def test_perplexity_enriches_empty_fields():
+    """Los datos estructurados de Perplexity deben llenar campos 'No disponible' del resultado."""
+    service = ResearchService()
+
+    items = [
+        ScrapedItem(url="https://www.copec.cl/", title="Copec", snippet="Empresa chilena de energía y combustibles", source="corporate"),
+    ]
+
+    # LLM responde con campos vacíos
+    llm_json = json.dumps({
+        "persona": {"nombre": "Henry Zabala", "cargo": "No disponible", "empresa": "Copec",
+                     "trayectoria": "No disponible", "educacion": "No disponible", "ubicacion": ""},
+        "empresa": {"nombre": "Copec", "industria": "Energía", "descripcion": "",
+                     "productos_servicios": [], "noticias_recientes": []},
+        "hallazgos": [{"content": "Copec es la mayor distribuidora de combustibles", "tipo": "C", "sources": [], "confidence": "partial"}],
+        "hallazgo_tipo": "C",
+        "score": 55,
+        "cargo_descubierto": "",
+    })
+    llm_response = MockLLMResponse(content=llm_json)
+
+    # Simular datos de Perplexity
+    service.orchestrator.perplexity_scraper.last_result = {
+        "persona": {
+            "nombre_completo": "Henry Zabala Sarmiento",
+            "cargo_actual": "Ingeniero de Mantenimiento",
+            "trayectoria": "20 años en energía y combustibles",
+            "educacion": "Ingeniero Mecánico, U de Chile",
+            "linkedin_url": "https://linkedin.com/in/henry-zabala",
+        },
+        "empresa": {
+            "nombre": "Copec",
+            "descripcion": "Principal distribuidora de combustibles en Chile",
+            "productos_servicios": ["Combustibles", "Lubricantes", "Gas"],
+            "tamano_empleados": "5000+",
+            "ubicacion": "Santiago, Chile",
+        },
+        "hallazgos": [
+            {"titulo": "Copec inauguró nueva planta", "resumen": "Nueva planta en Antofagasta", "fecha": "2026-01", "url": "https://news.example.com/copec"}
+        ],
+    }
+
+    service.orchestrator.corporate_scraper.discovered_domain = "https://www.copec.cl"
+
+    with patch.object(service.orchestrator, "search_all", new_callable=AsyncMock, return_value=items), \
+         patch.object(service.llm, "complete", new_callable=AsyncMock, return_value=llm_response):
+        result = await service.investigate("Henry Zabala Sarmiento", "Copec")
+
+    # Campos que estaban vacíos ahora deben tener datos de Perplexity
+    assert result.persona.get("trayectoria") == "20 años en energía y combustibles", \
+        f"Trayectoria no enriquecida: {result.persona.get('trayectoria')}"
+    assert result.persona.get("educacion") == "Ingeniero Mecánico, U de Chile", \
+        f"Educación no enriquecida: {result.persona.get('educacion')}"
+    assert result.persona.get("cargo") == "Ingeniero de Mantenimiento", \
+        f"Cargo no enriquecido: {result.persona.get('cargo')}"
+    assert result.cargo_descubierto == "Ingeniero de Mantenimiento", \
+        f"cargo_descubierto no enriquecido: {result.cargo_descubierto}"
+    assert result.empresa.get("descripcion") == "Principal distribuidora de combustibles en Chile"
+    assert result.empresa.get("productos_servicios") == ["Combustibles", "Lubricantes", "Gas"]
+    # Hallazgo de Perplexity debe haberse agregado
+    assert any("Copec inauguró" in h.get("content", "") for h in result.hallazgos), \
+        f"Hallazgo de Perplexity no agregado: {result.hallazgos}"
+
+
+# =============================================================================
+# TEST 26: Verifier no descarta fuentes de Perplexity
+# =============================================================================
+def test_verifier_keeps_perplexity_sources():
+    """Items de Perplexity sin URL no deben ser descartados por el verifier."""
+    verifier = Verifier()
+
+    items = [
+        ScrapedItem(
+            url="",  # Sin URL
+            title="Henry Zabala - Perfil profesional",
+            snippet="Cargo: Ingeniero de Mantenimiento. Empresa: Copec. Trayectoria: 20 años en energía",
+            source="perplexity_persona",
+        ),
+    ]
+    facts = verifier.verify(items)
+
+    assert len(facts) >= 1, "Item de Perplexity descartado"
+    assert facts[0].confidence != "discarded", f"Perplexity marcado como discarded: {facts[0].confidence}"

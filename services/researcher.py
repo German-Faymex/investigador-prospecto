@@ -76,6 +76,8 @@ class ResearchService:
                         # Asegurar que sitio_web viene del dominio descubierto
                         if corporate_domain and not result.empresa.get("sitio_web"):
                             result.empresa["sitio_web"] = corporate_domain
+                        # Enriquecer campos vacíos con datos de Perplexity
+                        self._enrich_from_perplexity(result)
                         return result
 
             # Fallback: si no hay datos de scraping, investigar directo con LLM
@@ -229,6 +231,83 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
             return path.read_text(encoding="utf-8")
         print(f"[Research] Prompt no encontrado: {path}")
         return ""
+
+    def _enrich_from_perplexity(self, result: ResearchResult):
+        """Enriquecer campos vacíos del resultado con datos estructurados de Perplexity."""
+        pplx_data = self.orchestrator.perplexity_scraper.last_result
+        if not pplx_data:
+            return
+
+        # Mapeo de campos Perplexity → campos del resultado
+        pplx_persona = pplx_data.get("persona", {})
+        pplx_empresa = pplx_data.get("empresa", {})
+
+        # Enriquecer persona
+        persona = result.persona
+        _fill = self._fill_if_empty
+
+        _fill(persona, "trayectoria", pplx_persona.get("trayectoria", ""))
+        _fill(persona, "educacion", pplx_persona.get("educacion", ""))
+        _fill(persona, "cargo", pplx_persona.get("cargo_actual", ""))
+        _fill(persona, "linkedin", pplx_persona.get("linkedin_url", ""))
+        _fill(persona, "ubicacion", pplx_persona.get("ubicacion", ""))
+
+        if not persona.get("logros_recientes") and pplx_persona.get("logros_recientes"):
+            persona["logros_recientes"] = pplx_persona["logros_recientes"]
+        if not persona.get("experiencia_previa") and pplx_persona.get("experiencia_previa"):
+            persona["experiencia_previa"] = pplx_persona["experiencia_previa"]
+
+        # Enriquecer empresa
+        empresa = result.empresa
+        _fill(empresa, "industria", pplx_empresa.get("industria", ""))
+        _fill(empresa, "descripcion", pplx_empresa.get("descripcion", ""))
+        _fill(empresa, "ubicacion", pplx_empresa.get("ubicacion", ""))
+        _fill(empresa, "sitio_web", pplx_empresa.get("sitio_web", ""))
+        _fill(empresa, "tamano_empleados", pplx_empresa.get("tamano_empleados", ""))
+        _fill(empresa, "presencia", pplx_empresa.get("presencia", ""))
+
+        if not empresa.get("productos_servicios") and pplx_empresa.get("productos_servicios"):
+            empresa["productos_servicios"] = pplx_empresa["productos_servicios"]
+        if not empresa.get("noticias_recientes") and pplx_empresa.get("noticias_recientes"):
+            empresa["noticias_recientes"] = pplx_empresa["noticias_recientes"]
+        if not empresa.get("competidores") and pplx_empresa.get("competidores"):
+            empresa["competidores"] = pplx_empresa["competidores"]
+        if not empresa.get("desafios_sector") and pplx_empresa.get("desafios_sector"):
+            empresa["desafios_sector"] = pplx_empresa["desafios_sector"]
+
+        # Enriquecer hallazgos: agregar noticias de Perplexity que no estén duplicadas
+        pplx_hallazgos = pplx_data.get("hallazgos", [])
+        if pplx_hallazgos and isinstance(pplx_hallazgos, list):
+            existing_contents = {h.get("content", "").lower()[:50] for h in result.hallazgos}
+            for h in pplx_hallazgos:
+                titulo = h.get("titulo", "")
+                resumen = h.get("resumen", "")
+                content = f"{titulo}: {resumen}" if titulo and resumen else titulo or resumen
+                if not content or content.lower()[:50] in existing_contents:
+                    continue
+                result.hallazgos.append({
+                    "content": content,
+                    "tipo": "B",
+                    "sources": [h["url"]] if h.get("url") else [],
+                    "confidence": "partial",
+                })
+
+        # Si cargo_descubierto está vacío, usar el de Perplexity
+        if not result.cargo_descubierto or result.cargo_descubierto in ("", "No disponible", "No especificado"):
+            pplx_cargo = pplx_persona.get("cargo_actual", "")
+            if pplx_cargo and pplx_cargo not in ("No disponible", "No verificado"):
+                result.cargo_descubierto = pplx_cargo
+
+        print(f"[Research] Resultado enriquecido con datos de Perplexity")
+
+    @staticmethod
+    def _fill_if_empty(d: dict, key: str, value: str):
+        """Llenar un campo solo si está vacío o contiene 'No disponible'."""
+        if not value or value in ("No disponible", "No verificado", "No verificada", "No determinada"):
+            return
+        current = d.get(key, "")
+        if not current or current in ("No disponible", "No especificado", "No verificado", ""):
+            d[key] = value
 
     def _parse_llm_response(self, text: str) -> Optional[dict]:
         """Extraer JSON de la respuesta del LLM."""

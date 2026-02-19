@@ -104,9 +104,11 @@ class Verifier:
 
             # Confianza basada en diversidad de fuentes (scrapers distintos)
             unique_sources = len(source_names)
+            has_perplexity = any(s.startswith("perplexity") for s in source_names)
             if unique_sources >= 2:
                 confidence = "verified"
-            elif unique_sources == 1 and urls:
+            elif has_perplexity or (unique_sources == 1 and urls):
+                # Perplexity ya hace búsqueda web real → nunca descartar
                 confidence = "partial"
             else:
                 confidence = "discarded"
