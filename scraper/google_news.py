@@ -1,4 +1,4 @@
-"""Scraper de Google News para noticias recientes."""
+"""Scraper de noticias: Google News con fallback a DuckDuckGo."""
 from bs4 import BeautifulSoup
 
 from scraper.base import BaseScraper, ScrapedItem
@@ -7,11 +7,22 @@ from scraper.base import BaseScraper, ScrapedItem
 class GoogleNewsScraper(BaseScraper):
     """Busca noticias recientes sobre la empresa y prospecto."""
 
-    BASE_URL = "https://www.google.com/search"
+    GOOGLE_URL = "https://www.google.com/search"
 
     async def search(self, name: str, company: str, role: str = "", location: str = "") -> list[ScrapedItem]:
         query = f'"{company}" {name} {location}'.strip() if location else f'"{company}" {name}'
 
+        # Intentar Google News primero
+        items = await self._search_google_news(query)
+
+        # Fallback a DuckDuckGo si Google falla
+        if not items:
+            print("[GoogleNewsScraper] Google News sin resultados, intentando DuckDuckGo")
+            items = await self._search_duckduckgo_news(query)
+
+        return items
+
+    async def _search_google_news(self, query: str) -> list[ScrapedItem]:
         params = {
             "q": query,
             "tbm": "nws",
@@ -20,17 +31,23 @@ class GoogleNewsScraper(BaseScraper):
             "hl": "es",
         }
 
-        html = await self._make_request(self.BASE_URL, params=params)
+        html = await self._make_request(self.GOOGLE_URL, params=params)
         if not html:
             return []
 
-        return self._parse_results(html)
+        return self._parse_google_results(html)
 
-    def _parse_results(self, html: str) -> list[ScrapedItem]:
+    async def _search_duckduckgo_news(self, query: str) -> list[ScrapedItem]:
+        """Buscar noticias en DuckDuckGo HTML."""
+        html = await self._ddg_post(f"{query} noticias")
+        if not html:
+            return []
+        return self._parse_ddg_results(html)
+
+    def _parse_google_results(self, html: str) -> list[ScrapedItem]:
         soup = BeautifulSoup(html, "html.parser")
         items = []
 
-        # Noticias aparecen en divs con clase diferente
         for article in soup.select("div.SoaBEf, div.dbsr, div.g"):
             link_el = article.select_one("a[href]")
             title_el = article.select_one("div.mCBkyc, div.JheGif, h3")
@@ -57,6 +74,32 @@ class GoogleNewsScraper(BaseScraper):
                 snippet=snippet,
                 source="google_news",
                 timestamp=timestamp,
+            ))
+
+            if len(items) >= self.settings.scraper.max_results_per_source:
+                break
+
+        return items
+
+    def _parse_ddg_results(self, html: str) -> list[ScrapedItem]:
+        soup = BeautifulSoup(html, "html.parser")
+        items = []
+
+        for title_el in soup.select("a.result__a"):
+            url = title_el.get("href", "")
+            if not url or "duckduckgo.com/y.js" in url or not url.startswith("http"):
+                continue
+
+            title = title_el.get_text(strip=True)
+            parent = title_el.find_parent("div", class_="result")
+            snippet_el = parent.select_one("a.result__snippet") if parent else None
+            snippet = snippet_el.get_text(strip=True) if snippet_el else ""
+
+            items.append(ScrapedItem(
+                url=url,
+                title=title,
+                snippet=snippet,
+                source="duckduckgo_news",
             ))
 
             if len(items) >= self.settings.scraper.max_results_per_source:

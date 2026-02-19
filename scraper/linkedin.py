@@ -1,13 +1,13 @@
-"""Scraper de LinkedIn vía búsqueda en Google."""
+"""Scraper de LinkedIn vía Google/DuckDuckGo."""
 from bs4 import BeautifulSoup
 
 from scraper.base import BaseScraper, ScrapedItem
 
 
 class LinkedInScraper(BaseScraper):
-    """Busca perfiles de LinkedIn del prospecto a través de Google."""
+    """Busca perfiles de LinkedIn del prospecto a través de buscadores."""
 
-    BASE_URL = "https://www.google.com/search"
+    GOOGLE_URL = "https://www.google.com/search"
 
     @staticmethod
     def build_search_url(name: str, company: str) -> str:
@@ -19,19 +19,34 @@ class LinkedInScraper(BaseScraper):
     async def search(self, name: str, company: str, role: str = "", location: str = "") -> list[ScrapedItem]:
         query = f'site:linkedin.com/in/ "{name}" "{company}"'
 
-        params = {
-            "q": query,
-            "num": "5",
-            "hl": "es",
-        }
+        # Intentar Google primero
+        items = await self._search_google(query)
 
-        html = await self._make_request(self.BASE_URL, params=params)
+        # Fallback a DuckDuckGo
+        if not items:
+            print("[LinkedInScraper] Google sin resultados, intentando DuckDuckGo")
+            ddg_query = f'{name} {company} site:linkedin.com/in/'
+            items = await self._search_duckduckgo(ddg_query)
+
+        return items
+
+    async def _search_google(self, query: str) -> list[ScrapedItem]:
+        params = {"q": query, "num": "5", "hl": "es"}
+
+        html = await self._make_request(self.GOOGLE_URL, params=params)
         if not html:
             return []
 
-        return self._parse_results(html)
+        return self._parse_google_results(html)
 
-    def _parse_results(self, html: str) -> list[ScrapedItem]:
+    async def _search_duckduckgo(self, query: str) -> list[ScrapedItem]:
+        """Buscar perfiles LinkedIn en DuckDuckGo HTML."""
+        html = await self._ddg_post(query)
+        if not html:
+            return []
+        return self._parse_ddg_results(html)
+
+    def _parse_google_results(self, html: str) -> list[ScrapedItem]:
         soup = BeautifulSoup(html, "html.parser")
         items = []
 
@@ -48,6 +63,34 @@ class LinkedInScraper(BaseScraper):
                 continue
 
             title = title_el.get_text(strip=True)
+            snippet = snippet_el.get_text(strip=True) if snippet_el else ""
+
+            items.append(ScrapedItem(
+                url=url,
+                title=title,
+                snippet=snippet,
+                source="linkedin",
+            ))
+
+            if len(items) >= 3:
+                break
+
+        return items
+
+    def _parse_ddg_results(self, html: str) -> list[ScrapedItem]:
+        soup = BeautifulSoup(html, "html.parser")
+        items = []
+
+        for title_el in soup.select("a.result__a"):
+            url = title_el.get("href", "")
+            if not url or "duckduckgo.com/y.js" in url:
+                continue
+            if "linkedin.com" not in url:
+                continue
+
+            title = title_el.get_text(strip=True)
+            parent = title_el.find_parent("div", class_="result")
+            snippet_el = parent.select_one("a.result__snippet") if parent else None
             snippet = snippet_el.get_text(strip=True) if snippet_el else ""
 
             items.append(ScrapedItem(
