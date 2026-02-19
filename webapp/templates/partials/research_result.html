@@ -175,6 +175,26 @@
                     {% endif %}
                 </div>
             </div>
+
+            {% set persona_sources = result.raw_sources | selectattr('source', 'in', ['linkedin', 'perplexity_persona', 'duckduckgo']) | list %}
+            {% if persona_sources %}
+            <details class="text-sm bg-white rounded-xl shadow-sm overflow-hidden">
+                <summary class="px-5 py-3 text-gray-400 cursor-pointer hover:text-gray-600 font-medium">
+                    &#128100; {{ persona_sources | length }} fuentes personales
+                </summary>
+                <div class="px-5 pb-3 space-y-1">
+                    {% for src in persona_sources[:5] %}
+                    <div class="flex items-center gap-2 text-gray-500 text-sm">
+                        <span class="w-20 text-gray-400 shrink-0 text-xs">{{ src.get('source', '') }}</span>
+                        <a href="{{ src.get('url', '#') }}" target="_blank" rel="noopener"
+                           class="text-blue-500 hover:underline truncate">
+                            {{ src.get('title', src.get('url', '')) | truncate(40) }}
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
         </div>
 
         <!-- CENTER COLUMN: Email Editor -->
@@ -348,15 +368,16 @@
                 </div>
             </div>
 
-            {% if result.raw_sources %}
+            {% set empresa_sources = result.raw_sources | rejectattr('source', 'in', ['linkedin', 'perplexity_persona', 'duckduckgo']) | list %}
+            {% if empresa_sources %}
             <details class="text-sm bg-white rounded-xl shadow-sm overflow-hidden">
                 <summary class="px-5 py-3 text-gray-400 cursor-pointer hover:text-gray-600 font-medium">
-                    &#128269; {{ result.raw_sources | length }} fuentes
+                    &#127970; {{ empresa_sources | length }} fuentes empresa
                 </summary>
                 <div class="px-5 pb-3 space-y-1">
-                    {% for src in result.raw_sources[:10] %}
+                    {% for src in empresa_sources[:10] %}
                     <div class="flex items-center gap-2 text-gray-500 text-sm">
-                        <span class="w-16 text-gray-400 shrink-0">{{ src.get('source', '') }}</span>
+                        <span class="w-20 text-gray-400 shrink-0 text-xs">{{ src.get('source', '') }}</span>
                         <a href="{{ src.get('url', '#') }}" target="_blank" rel="noopener"
                            class="text-blue-500 hover:underline truncate">
                             {{ src.get('title', src.get('url', '')) | truncate(40) }}
