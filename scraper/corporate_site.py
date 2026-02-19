@@ -173,14 +173,31 @@ class CorporateSiteScraper(BaseScraper):
             except Exception:
                 pass
 
-        # 2. Extraer body text
+        # 2. Extraer links del nav ANTES de eliminarlo (servicios/productos)
+        nav_items = []
+        for nav in soup.find_all("nav"):
+            for a in nav.find_all("a"):
+                text = a.get_text(strip=True)
+                if text and len(text) > 2 and len(text) < 50:
+                    nav_items.append(text)
+        if nav_items:
+            # Deduplicar preservando orden
+            seen_nav = set()
+            unique_nav = []
+            for item in nav_items:
+                if item.lower() not in seen_nav:
+                    seen_nav.add(item.lower())
+                    unique_nav.append(item)
+            meta_parts.append(f"Secciones/Servicios: {', '.join(unique_nav[:15])}")
+
+        # 3. Extraer body text (sin nav/header/footer para evitar ruido)
         for tag in soup(["script", "style", "nav", "footer", "header"]):
             tag.decompose()
 
         body_text = soup.get_text(separator=" ", strip=True)
         body_text = " ".join(body_text.split())[:1000]
 
-        # 3. Combinar meta + body
+        # 4. Combinar meta + body
         meta_text = " | ".join(meta_parts) if meta_parts else ""
         if meta_text and body_text:
             text = f"{meta_text}. {body_text}"
