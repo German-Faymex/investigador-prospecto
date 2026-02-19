@@ -1,4 +1,6 @@
 """Scraper de LinkedIn vía Google/DuckDuckGo."""
+import json
+
 from bs4 import BeautifulSoup
 
 from scraper.base import BaseScraper, ScrapedItem
@@ -27,6 +29,10 @@ class LinkedInScraper(BaseScraper):
             print("[LinkedInScraper] Google sin resultados, intentando DuckDuckGo")
             ddg_query = f'{name} {company} site:linkedin.com/in/'
             items = await self._search_duckduckgo(ddg_query)
+
+        # Enriquecer con datos del perfil público
+        if items:
+            items = await self._enrich_with_profile_page(items)
 
         return items
 
@@ -103,4 +109,85 @@ class LinkedInScraper(BaseScraper):
             if len(items) >= 3:
                 break
 
+        return items
+
+    async def _enrich_with_profile_page(self, items: list[ScrapedItem]) -> list[ScrapedItem]:
+        """Intentar fetch de perfil LinkedIn público para datos más ricos. Fallback silencioso si falla."""
+        for item in items:
+            if "/in/" not in item.url:
+                continue
+            try:
+                html = await self._make_request(item.url)
+                if not html or len(html) < 500:
+                    continue
+
+                # Detectar authwall
+                if "authwall" in html.lower() or "sign-in" in html[:2000].lower():
+                    print("[LinkedInScraper] Authwall detectada, usando datos de búsqueda")
+                    break  # No intentar más perfiles
+
+                soup = BeautifulSoup(html, "html.parser")
+                enriched_parts = []
+
+                # 1. JSON-LD (más rico)
+                ld_script = soup.find("script", type="application/ld+json")
+                if ld_script:
+                    try:
+                        ld_data = json.loads(ld_script.string or "")
+                        ld_parts = []
+                        if isinstance(ld_data, dict):
+                            if ld_data.get("name"):
+                                ld_parts.append(ld_data["name"])
+                            if ld_data.get("jobTitle"):
+                                ld_parts.append(ld_data["jobTitle"])
+                            # worksFor puede ser dict o lista
+                            works_for = ld_data.get("worksFor")
+                            if isinstance(works_for, dict) and works_for.get("name"):
+                                ld_parts.append(works_for["name"])
+                            elif isinstance(works_for, list):
+                                for wf in works_for[:2]:
+                                    if isinstance(wf, dict) and wf.get("name"):
+                                        ld_parts.append(wf["name"])
+                            if ld_data.get("address"):
+                                addr = ld_data["address"]
+                                if isinstance(addr, dict):
+                                    loc = addr.get("addressLocality", "")
+                                    region = addr.get("addressRegion", "")
+                                    if loc or region:
+                                        ld_parts.append(f"{loc}, {region}".strip(", "))
+                            # Educación
+                            alumni = ld_data.get("alumniOf")
+                            if isinstance(alumni, list):
+                                for school in alumni[:2]:
+                                    if isinstance(school, dict) and school.get("name"):
+                                        ld_parts.append(school["name"])
+                        if ld_parts:
+                            enriched_parts.append(" | ".join(ld_parts))
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+
+                # 2. Meta description (fallback)
+                meta_desc = soup.find("meta", {"name": "description"})
+                if meta_desc and meta_desc.get("content"):
+                    enriched_parts.append(meta_desc["content"])
+
+                # 3. OG description
+                og_desc = soup.find("meta", {"property": "og:description"})
+                if og_desc and og_desc.get("content"):
+                    enriched_parts.append(og_desc["content"])
+
+                # Enriquecer snippet si hay datos nuevos
+                if enriched_parts:
+                    combined = " | ".join(enriched_parts)
+                    if len(combined) > len(item.snippet):
+                        item.snippet = combined
+
+                # Enriquecer title
+                title_tag = soup.find("title")
+                if title_tag and len(title_tag.get_text(strip=True)) > len(item.title):
+                    item.title = title_tag.get_text(strip=True)
+
+            except Exception as e:
+                print(f"[LinkedInScraper] Error enriqueciendo perfil: {e}")
+                continue
         return items

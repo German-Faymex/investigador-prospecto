@@ -105,7 +105,10 @@ class EmailGenerator:
         if research.raw_sources:
             lines.append("\n### Fuentes")
             for src in research.raw_sources[:5]:
-                lines.append(f"- {src.get('source', '')}: {src.get('url', '')}")
+                title = src.get('title', '')
+                source = src.get('source', '')
+                url = src.get('url', '')
+                lines.append(f"- {source}: {title} ({url})" if title else f"- {source}: {url}")
 
         return "\n".join(lines)
 

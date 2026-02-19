@@ -83,6 +83,17 @@ class Verifier:
             # Usar el snippet más largo como contenido representativo
             best_snippet = max(group_items, key=lambda x: len(x.snippet))
 
+            # Seleccionar el mejor title del grupo
+            best_title_item = max(group_items, key=lambda x: len(x.title)) if any(it.title for it in group_items) else None
+            best_title = best_title_item.title if best_title_item else ""
+
+            content = best_snippet.snippet
+            if best_title:
+                title_tokens = _tokenize(best_title)
+                snippet_tokens = _tokenize(content)
+                if title_tokens - snippet_tokens:  # title tiene info no redundante
+                    content = f"{best_title}. {content}"
+
             urls = list({it.url for it in group_items if it.url})
             source_names = list({it.source for it in group_items})
 
@@ -96,7 +107,7 @@ class Verifier:
                 confidence = "discarded"
 
             facts.append(VerifiedFact(
-                content=best_snippet.snippet,
+                content=content,
                 sources=urls,
                 source_names=source_names,
                 confidence=confidence,
