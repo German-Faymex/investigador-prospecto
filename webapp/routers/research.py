@@ -20,6 +20,9 @@ async def do_research(
     location: str = Form(""),
 ):
     """Execute prospect research, auto-generate email, and return HTML partial."""
+    # Normalizar capitalización del nombre de persona
+    name = _title_case(name)
+
     try:
         from services.researcher import ResearchService
         from services.email_generator import EmailGenerator
@@ -62,3 +65,29 @@ async def do_research(
             "partials/error.html",
             {"request": request, "error": str(e)},
         )
+
+
+# Preposiciones/artículos que no se capitalizan en nombres
+_LOWERCASE_WORDS = {"de", "del", "la", "las", "los", "el", "y", "e", "en", "con", "da", "do", "dos", "von", "van"}
+
+
+def _title_case(text: str) -> str:
+    """Capitalizar nombres propios respetando preposiciones.
+
+    'gustavo peralta' → 'Gustavo Peralta'
+    'juan de la cruz' → 'Juan de la Cruz'
+    """
+    if not text or not text.strip():
+        return text
+    words = text.strip().split()
+    result = []
+    for i, w in enumerate(words):
+        if i == 0 or w.lower() not in _LOWERCASE_WORDS:
+            # Capitalizar si todo minúsc/mayúsc; preservar mixed case (ej: "McDonald")
+            if w.islower() or (w.isupper() and len(w) > 1):
+                result.append(w.capitalize())
+            else:
+                result.append(w)
+        else:
+            result.append(w.lower())
+    return " ".join(result)
