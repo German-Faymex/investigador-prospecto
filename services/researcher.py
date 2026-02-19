@@ -87,117 +87,102 @@ class ResearchService:
         return result
 
     async def _llm_direct_research(self, name: str, company: str, role: str = "", location: str = "") -> ResearchResult:
-        """Fallback: investigar usando solo el conocimiento del LLM (sin scraping)."""
-        from datetime import datetime, timedelta
+        """Fallback: investigar usando solo el conocimiento del LLM (sin scraping).
 
-        today = datetime.now()
-        six_months_ago = today - timedelta(days=180)
-        current_date = today.strftime("%d de %B de %Y")
-        date_limit = six_months_ago.strftime("%B %Y")
+        IMPORTANTE: Este método solo usa conocimiento general del LLM, sin fuentes verificables.
+        Los resultados se limitan a score <= 45 y hallazgo_tipo <= "C" para reflejar
+        la baja confiabilidad de datos no verificados.
+        """
+        system_prompt = """Eres un asistente que ayuda a identificar informacion PUBLICA Y CONOCIDA sobre empresas y personas.
 
-        system_prompt = f"""Eres un investigador experto en prospeccion B2B para Faymex, empresa chilena de suministros industriales.
-Tu tarea es investigar al prospecto usando tu conocimiento y extraer informacion ESPECIFICA y ACCIONABLE
-para personalizar un email de ventas.
+REGLAS ESTRICTAS - LEE CON ATENCION:
 
-FECHA ACTUAL: {current_date}
+1. NUNCA inventes informacion. Si no sabes algo con CERTEZA, deja el campo vacio o escribe "No disponible".
+2. NUNCA inventes noticias, contratos, montos, fechas, logros, titulos universitarios ni trayectorias profesionales.
+3. NUNCA fabriques URLs de LinkedIn ni de sitios web.
+4. Solo incluye informacion que sea PUBLICA, CONOCIDA y que puedas afirmar con ALTA CERTEZA.
+5. Para personas que NO son figuras publicas conocidas, lo correcto es devolver campos vacios.
+6. Para empresas pequenas o poco conocidas, solo incluye lo que sepas con certeza (ej: industria general, pais).
+7. El score MAXIMO que puedes asignar es 45. El hallazgo_tipo MAXIMO es "C".
+8. Todos los hallazgos deben tener "sources": [] y "confidence": "unverified".
 
-CONTEXTO DE NEGOCIO - FAYMEX:
-- Servicios: suministros industriales, repuestos criticos, stock local, consignacion
-- Industrias clave: Mineria (cobre), Energia, Petroleo y Gas, Manufactura
-- Clientes de referencia: CODELCO, Anglo American, Altonorte, ENAP
-- Ventaja: stock local que evita importaciones de 8-12 semanas
+Responde SIEMPRE en formato JSON con esta estructura exacta:
 
-QUE BUSCAR (en orden de prioridad):
-1. PROYECTOS NUEVOS: Nueva planta, expansion, paradas programadas, inversiones
-2. NOTICIAS RECIENTES: Contratos ganados, nuevas operaciones, crecimiento
-3. LOGROS DEL EJECUTIVO: Ascensos recientes, publicaciones, premios
-4. DESAFIOS: Problemas de mantenimiento, disponibilidad de equipos
-
-RESTRICCION DE TIEMPO:
-- SOLO informacion de los ULTIMOS 6 MESES (desde {date_limit})
-- Si la informacion es antigua o generica, asigna hallazgo_tipo="D"
-
-Responde SIEMPRE en formato JSON con esta estructura exacta. IMPORTANTE: se DETALLADO y EXTENSO en cada campo, no resumas.
-
-{{
-    "persona": {{
-        "nombre": "Nombre completo del prospecto",
-        "cargo": "Cargo actual completo con area de responsabilidad",
-        "empresa": "Empresa actual",
-        "linkedin": "URL de LinkedIn si la conoces (formato: https://linkedin.com/in/...)",
-        "trayectoria": "Descripcion DETALLADA de su trayectoria profesional: anos de experiencia, empresas anteriores, roles anteriores, especializaciones. Minimo 3-4 oraciones.",
-        "educacion": "Titulo profesional, universidad, postgrados si los tiene",
-        "ubicacion": "Ciudad y pais donde trabaja",
-        "intereses": "Areas de interes profesional, temas en los que se especializa",
-        "logros_recientes": ["Logro 1 con detalle", "Logro 2 con detalle"],
-        "experiencia_previa": ["Empresa anterior 1 - Cargo - Periodo", "Empresa anterior 2 - Cargo - Periodo"]
-    }},
-    "empresa": {{
-        "nombre": "Nombre completo de la empresa",
-        "industria": "Industria/sector especifico",
-        "descripcion": "Descripcion DETALLADA de la empresa: que hace, desde cuando opera, que tan grande es, cual es su posicion en el mercado. Minimo 3-4 oraciones.",
-        "productos_servicios": ["Producto/servicio principal 1", "Producto/servicio 2", "Producto/servicio 3"],
-        "noticias_recientes": ["Noticia reciente 1 con fecha y detalle", "Noticia reciente 2 con fecha y detalle"],
-        "desafios_sector": ["Desafio 1 especifico del sector con contexto", "Desafio 2 con contexto"],
-        "competidores": ["Competidor 1", "Competidor 2"],
-        "ubicacion": "Sede principal y presencia geografica",
-        "presencia": "Paises o regiones donde opera",
-        "sitio_web": "URL del sitio web oficial"
-    }},
+{
+    "persona": {
+        "nombre": "Nombre proporcionado",
+        "cargo": "Solo si lo conoces con certeza, sino 'No disponible'",
+        "empresa": "Empresa proporcionada",
+        "linkedin": "",
+        "trayectoria": "Solo si es una figura publica conocida, sino 'No disponible'",
+        "educacion": "Solo si es informacion publica verificable, sino 'No disponible'",
+        "ubicacion": "Solo si lo sabes con certeza",
+        "intereses": "No disponible",
+        "logros_recientes": [],
+        "experiencia_previa": []
+    },
+    "empresa": {
+        "nombre": "Nombre de la empresa",
+        "industria": "Industria/sector si es conocido",
+        "descripcion": "Solo informacion publica y verificable sobre la empresa",
+        "productos_servicios": [],
+        "noticias_recientes": [],
+        "desafios_sector": [],
+        "competidores": [],
+        "ubicacion": "Solo si lo sabes con certeza",
+        "presencia": "",
+        "sitio_web": "Solo si conoces la URL real"
+    },
     "hallazgos": [
-        {{
-            "content": "Hallazgo ESPECIFICO con datos concretos, cifras, fechas y contexto. Debe ser una oracion completa y detallada.",
-            "tipo": "A|B|C|D",
+        {
+            "content": "Solo hechos verificables y publicamente conocidos",
+            "tipo": "C|D",
             "sources": [],
-            "confidence": "partial"
-        }}
+            "confidence": "unverified"
+        }
     ],
-    "hallazgo_tipo": "A|B|C|D",
-    "score": 50,
-    "cargo_descubierto": "Cargo descubierto si no fue proporcionado"
-}}
+    "hallazgo_tipo": "C|D",
+    "score": 20,
+    "cargo_descubierto": ""
+}
 
-IMPORTANTE: No dejes campos vacios si puedes inferir la informacion. Se extenso y detallado en las descripciones.
-
-REGLAS DE SCORE:
-- Score 80-100: Info de los ultimos 3 meses, muy especifica
-- Score 60-79: Info de 3-6 meses, relevante
-- Score 40-59: Info generica pero actual
-- Score 0-39: Info desactualizada o no encontrada
-
-Si no tienes informacion especifica, se honesto y asigna hallazgo_tipo="D" con score bajo."""
+RECUERDA: Es MUCHO mejor devolver campos vacios que inventar informacion falsa.
+Si la persona no es una figura publica conocida, devuelve la mayoria de campos como "No disponible" con score bajo."""
 
         location_instruction = ""
         if location:
-            location_instruction = f"\n6. PRIORIZA noticias e informacion relevante para la region de {location}. Penaliza hallazgos de regiones distintas."
+            location_instruction = f"\n- Ubicacion: {location}"
 
-        user_prompt = f"""Investiga al siguiente prospecto usando tu conocimiento:
+        user_prompt = f"""Proporciona SOLO informacion que conozcas con CERTEZA sobre:
 
-PROSPECTO:
 - Nombre: {name}
-- Cargo: {role or 'No especificado'}
 - Empresa: {company}
-- Ubicacion: {location or 'No especificada'}
+- Cargo: {role or 'No especificado'}{location_instruction}
 
-INSTRUCCIONES:
-1. Busca en tu conocimiento informacion ESPECIFICA sobre esta persona y empresa
-2. Prioriza noticias de inversion, expansion o nuevos proyectos
-3. Si conoces algun logro del ejecutivo, mencionalo
-4. Los hallazgos deben tener DATOS CONCRETOS, no generalidades
-5. Si no tienes informacion especifica, se honesto y asigna hallazgo_tipo="D" con score bajo{location_instruction}
-
-Responde SOLO con el JSON estructurado, sin texto adicional."""
+IMPORTANTE: Si no conoces a esta persona o empresa, devuelve campos vacios con score bajo (10-20).
+NO inventes nada. Responde SOLO con el JSON estructurado."""
 
         llm_response = await self.llm.complete(system_prompt, user_prompt)
-        result = ResearchResult(llm_used=f"{llm_response.model_used} (directo)")
+        result = ResearchResult(llm_used=f"{llm_response.model_used} (sin verificar)")
 
         parsed = self._parse_llm_response(llm_response.content)
         if parsed:
             result.persona = parsed.get("persona", {})
             result.empresa = parsed.get("empresa", {})
             result.hallazgos = parsed.get("hallazgos", [])
-            result.hallazgo_tipo = parsed.get("hallazgo_tipo", "D")
-            result.score = parsed.get("score", 0)
+
+            # Forzar limites: sin scraping, nunca puede ser tipo A/B ni score > 45
+            raw_tipo = parsed.get("hallazgo_tipo", "D")
+            result.hallazgo_tipo = raw_tipo if raw_tipo in ("C", "D") else "C"
+            result.score = min(parsed.get("score", 0), 45)
+
+            # Marcar todos los hallazgos como no verificados
+            for h in result.hallazgos:
+                h["confidence"] = "unverified"
+                h["sources"] = []
+                if h.get("tipo") in ("A", "B"):
+                    h["tipo"] = "C"
+
             result.cargo_descubierto = parsed.get("cargo_descubierto", role)
         else:
             result.error = "No se pudo parsear la respuesta del LLM"

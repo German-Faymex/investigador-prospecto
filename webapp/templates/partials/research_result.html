@@ -50,19 +50,41 @@
         </div>
         {% if result.hallazgos %}
         <div class="bg-black/10 px-6 py-3">
-            <div class="space-y-2">
+            <div class="space-y-3">
                 {% for h in result.hallazgos %}
-                <div class="flex items-start gap-2 text-white/90 text-sm">
-                    <span class="mt-0.5 shrink-0">
-                        {% if h.get('confidence') == 'verified' %}&#9989;{% else %}&#9888;&#65039;{% endif %}
-                    </span>
-                    <span>{{ h.get('content', '') }}</span>
+                <div>
+                    <div class="flex items-start gap-2 text-white/90 text-sm">
+                        <span class="mt-0.5 shrink-0">
+                            {% if h.get('confidence') == 'verified' %}&#9989;{% elif h.get('confidence') == 'unverified' %}&#128308;{% else %}&#9888;&#65039;{% endif %}
+                        </span>
+                        <span>{{ h.get('content', '') }}</span>
+                    </div>
+                    <div class="ml-6 mt-1 text-white/50 text-xs">
+                        {% if h.get('sources') and h.sources | length > 0 %}
+                            {% for src_url in h.sources[:3] %}
+                                <a href="{{ src_url }}" target="_blank" rel="noopener" class="hover:text-white/70 underline">{{ src_url | truncate(50) }}</a>{% if not loop.last %} | {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            Fuente: Conocimiento general del LLM (no verificado)
+                        {% endif %}
+                    </div>
                 </div>
                 {% endfor %}
             </div>
         </div>
         {% endif %}
     </div>
+
+    <!-- Warning banner when no scraping data -->
+    {% if 'sin verificar' in result.llm_used or not result.raw_sources %}
+    <div class="rounded-xl bg-amber-50 border border-amber-300 px-5 py-3 mb-6 flex items-start gap-3">
+        <span class="text-amber-600 text-xl mt-0.5 shrink-0">&#9888;&#65039;</span>
+        <div>
+            <p class="text-amber-800 font-medium text-sm">Resultados basados en conocimiento general de IA</p>
+            <p class="text-amber-700 text-xs mt-0.5">No se encontraron fuentes publicas verificables. Los datos mostrados no han sido verificados y pueden ser inexactos. Usar con precaucion.</p>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Three Column Layout: Personal (left) | Email (center) | Empresa (right) -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
@@ -90,8 +112,8 @@
                         <span class="text-gray-400 text-xs uppercase tracking-wide">Cargo</span>
                         <div class="flex items-center gap-1.5">
                             <p class="font-medium text-sm">{{ result.cargo_descubierto or result.persona.get('cargo_actual', result.persona.get('cargo', 'No encontrado')) }}</p>
-                            {% if result.cargo_descubierto or result.persona.get('cargo_actual') or result.persona.get('cargo') %}
-                                <span class="badge-verified" title="Verificado">&#9989;</span>
+                            {% if result.raw_sources and (result.cargo_descubierto or result.persona.get('cargo_actual') or result.persona.get('cargo')) %}
+                                <span class="badge-verified" title="Verificado con fuentes">&#9989;</span>
                             {% else %}
                                 <span class="badge-partial" title="No verificado">&#9888;&#65039;</span>
                             {% endif %}
@@ -281,8 +303,10 @@
                         <span class="text-gray-400 text-xs uppercase tracking-wide">Industria</span>
                         <div class="flex items-center gap-1.5">
                             <p class="font-medium text-sm">{{ result.empresa.get('industria', 'No identificada') }}</p>
-                            {% if result.empresa.get('industria') %}
+                            {% if result.raw_sources and result.empresa.get('industria') %}
                                 <span class="badge-verified">&#9989;</span>
+                            {% elif result.empresa.get('industria') %}
+                                <span class="badge-partial">&#9888;&#65039;</span>
                             {% endif %}
                         </div>
                     </div>

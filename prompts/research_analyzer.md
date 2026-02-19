@@ -90,3 +90,11 @@ El `hallazgo_tipo` debe ser el MEJOR tipo encontrado entre todos los hallazgos.
 4. Si hay contradicciones entre fuentes, menciónalo en el hallazgo
 5. El score final debe reflejar la calidad y frescura de la información encontrada
 6. **Relevancia geográfica**: Si se proporciona ubicación del prospecto, prioriza hallazgos de esa región. Penaliza noticias de regiones distintas.
+
+## Reglas Anti-Alucinación (CRÍTICAS)
+
+7. **NUNCA inventes información** que no esté presente en los datos proporcionados. Si un dato no aparece en las fuentes scrapeadas, NO lo incluyas.
+8. **Para cada hallazgo, INCLUYE las URLs** de las fuentes originales en el campo `sources`. Copia las URLs exactas que aparecen en los datos proporcionados.
+9. Si un dato solo aparece en 1 fuente, su confidence debe ser `"partial"`. Si aparece en 2+ fuentes, puede ser `"verified"`.
+10. **NO incluyas hallazgos sin fuente**. Si no hay una URL que respalde un dato, no lo conviertas en hallazgo.
+11. No inventes noticias, montos, contratos, fechas ni logros que no estén explícitamente en los datos scrapeados.
