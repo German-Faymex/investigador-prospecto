@@ -4,6 +4,7 @@ import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from dataclasses import dataclass
 
+import httpx
 from bs4 import BeautifulSoup
 
 from scraper.base import ScrapedItem
@@ -11,6 +12,7 @@ from scraper.google_search import GoogleSearchScraper
 from scraper.google_news import GoogleNewsScraper
 from scraper.linkedin import LinkedInScraper
 from scraper.corporate_site import CorporateSiteScraper
+from scraper.perplexity import PerplexityScraper
 from scraper.orchestrator import ScraperOrchestrator
 from services.researcher import ResearchService, ResearchResult
 from services.verifier import Verifier
@@ -354,6 +356,7 @@ async def test_orchestrator_partial_failure_preserves_results():
     with patch.object(orchestrator.linkedin_scraper, "search", side_effect=mock_fail), \
          patch.object(orchestrator.google_scraper, "search", side_effect=mock_fail), \
          patch.object(orchestrator.news_scraper, "search", side_effect=mock_fail), \
+         patch.object(orchestrator.perplexity_scraper, "search", side_effect=mock_fail), \
          patch.object(orchestrator.corporate_scraper, "search", side_effect=mock_corporate):
         results = await orchestrator.search_all("German Saltron", "Faymex")
 
@@ -605,3 +608,154 @@ def test_corporate_extracts_meta_from_spa():
     assert "combustibles" in item.snippet.lower() or "distribuidora" in item.snippet.lower(), \
         f"Meta description no extraída: {item.snippet}"
     assert "Copec" in item.title, f"Title no extraído: {item.title}"
+
+
+# =============================================================================
+# TEST 20: Perplexity scraper retorna vacío sin API key
+# =============================================================================
+@pytest.mark.asyncio
+async def test_perplexity_no_api_key_returns_empty():
+    """Sin PERPLEXITY_API_KEY el scraper debe retornar [] silenciosamente."""
+    scraper = PerplexityScraper()
+
+    with patch.object(scraper.settings, "perplexity_api_key", ""):
+        results = await scraper.search("Test User", "TestCo")
+
+    assert results == [], f"Esperado [], obtuve {results}"
+
+
+# =============================================================================
+# TEST 21: Perplexity scraper parsea respuesta exitosa en ScrapedItems
+# =============================================================================
+@pytest.mark.asyncio
+async def test_perplexity_successful_response():
+    """Una respuesta exitosa de Perplexity debe generar ScrapedItems de persona, empresa y noticias."""
+    scraper = PerplexityScraper()
+
+    mock_api_response = {
+        "choices": [{
+            "message": {
+                "content": json.dumps({
+                    "persona": {
+                        "nombre_completo": "Henry Zabala Sarmiento",
+                        "cargo_actual": "Gerente de Operaciones",
+                        "empresa_actual": "Copec",
+                        "linkedin_url": "https://linkedin.com/in/henry-zabala",
+                        "trayectoria": "20 años en energía",
+                        "educacion": "Ingeniero Civil, U de Chile",
+                        "logros_recientes": ["Lideró expansión regional"]
+                    },
+                    "empresa": {
+                        "nombre": "Copec",
+                        "industria": "Energía y combustibles",
+                        "descripcion": "Principal distribuidora de combustibles en Chile",
+                        "productos_servicios": ["Combustibles", "Lubricantes", "Gas"],
+                        "tamano_empleados": "5000+",
+                        "ubicacion": "Santiago, Chile",
+                        "sitio_web": "https://www.copec.cl"
+                    },
+                    "hallazgos": [
+                        {
+                            "titulo": "Copec inaugura nueva planta",
+                            "resumen": "Copec inauguró nueva planta de almacenamiento en Antofagasta",
+                            "fecha": "2026-01-15",
+                            "url": "https://news.example.com/copec-planta"
+                        },
+                        {
+                            "titulo": "Expansión red de estaciones",
+                            "resumen": "Plan de expansión con 50 nuevas estaciones",
+                            "fecha": "2025-12-01",
+                            "url": ""
+                        }
+                    ]
+                })
+            }
+        }]
+    }
+
+    mock_response = MagicMock()
+    mock_response.json.return_value = mock_api_response
+    mock_response.raise_for_status = MagicMock()
+
+    with patch.object(scraper.settings, "perplexity_api_key", "pplx-test-key"), \
+         patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_response):
+        results = await scraper.search("Henry Zabala Sarmiento", "Copec", role="Gerente de Operaciones")
+
+    # Debe generar: 1 persona + 1 empresa + 2 noticias = 4 items
+    assert len(results) == 4, f"Esperados 4 items, obtuve {len(results)}: {[r.source for r in results]}"
+
+    sources = [r.source for r in results]
+    assert "perplexity_persona" in sources, "Falta item de persona"
+    assert "perplexity_empresa" in sources, "Falta item de empresa"
+    assert sources.count("perplexity_news") == 2, f"Esperadas 2 noticias, obtuve {sources.count('perplexity_news')}"
+
+    # Verificar contenido del item de persona
+    persona_item = next(r for r in results if r.source == "perplexity_persona")
+    assert "Gerente de Operaciones" in persona_item.snippet
+    assert "linkedin.com" in persona_item.url
+
+    # Verificar contenido del item de empresa
+    empresa_item = next(r for r in results if r.source == "perplexity_empresa")
+    assert "Energía" in empresa_item.snippet or "combustibles" in empresa_item.snippet
+    assert "copec.cl" in empresa_item.url
+
+    # Verificar noticias tienen fecha
+    news_items = [r for r in results if r.source == "perplexity_news"]
+    assert "2026-01-15" in news_items[0].snippet
+
+
+# =============================================================================
+# TEST 22: Perplexity scraper maneja error de API sin crashear
+# =============================================================================
+@pytest.mark.asyncio
+async def test_perplexity_api_error_returns_empty():
+    """Si la API de Perplexity falla, debe retornar [] sin crashear."""
+    scraper = PerplexityScraper()
+
+    with patch.object(scraper.settings, "perplexity_api_key", "pplx-test-key"), \
+         patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=httpx.HTTPStatusError(
+             "Server Error", request=MagicMock(), response=MagicMock(status_code=500))):
+        results = await scraper.search("Test User", "TestCo")
+
+    assert results == [], f"Esperado [] tras error de API, obtuve {results}"
+
+
+# =============================================================================
+# TEST 23: Perplexity scraper maneja JSON inválido como texto crudo
+# =============================================================================
+@pytest.mark.asyncio
+async def test_perplexity_invalid_json_fallback():
+    """Si Perplexity responde con texto no-JSON, debe crear un item con el texto crudo."""
+    scraper = PerplexityScraper()
+
+    mock_api_response = {
+        "choices": [{
+            "message": {
+                "content": "No pude encontrar información estructurada sobre esta persona, pero sé que trabaja en minería."
+            }
+        }]
+    }
+
+    mock_response = MagicMock()
+    mock_response.json.return_value = mock_api_response
+    mock_response.raise_for_status = MagicMock()
+
+    with patch.object(scraper.settings, "perplexity_api_key", "pplx-test-key"), \
+         patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_response):
+        results = await scraper.search("Test User", "TestCo")
+
+    assert len(results) == 1, f"Esperado 1 item de fallback, obtuve {len(results)}"
+    assert "perplexity" in results[0].source
+    assert "minería" in results[0].snippet
+
+
+# =============================================================================
+# TEST 24: Orchestrator incluye PerplexityScraper
+# =============================================================================
+def test_orchestrator_includes_perplexity():
+    """El orchestrator debe incluir el PerplexityScraper en su lista de scrapers."""
+    orchestrator = ScraperOrchestrator()
+
+    scraper_types = [type(s).__name__ for s in orchestrator.scrapers]
+    assert "PerplexityScraper" in scraper_types, f"PerplexityScraper no encontrado en: {scraper_types}"
+    assert len(orchestrator.scrapers) == 5, f"Esperados 5 scrapers, hay {len(orchestrator.scrapers)}"

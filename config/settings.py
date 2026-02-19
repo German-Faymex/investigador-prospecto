@@ -54,6 +54,7 @@ class Settings:
             sender_name=os.getenv("SENDER_NAME", "Gustavo Peralta"),
             sender_company=os.getenv("SENDER_COMPANY", "Faymex"),
         )
+        self.perplexity_api_key: str = os.getenv("PERPLEXITY_API_KEY", "")
 
     def validate(self) -> list[str]:
         errors = []

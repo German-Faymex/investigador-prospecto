@@ -1,10 +1,11 @@
-"""Ejecuta los 4 scrapers en paralelo."""
+"""Ejecuta los 5 scrapers en paralelo."""
 import asyncio
 
 from scraper.google_search import GoogleSearchScraper
 from scraper.google_news import GoogleNewsScraper
 from scraper.linkedin import LinkedInScraper
 from scraper.corporate_site import CorporateSiteScraper
+from scraper.perplexity import PerplexityScraper
 from scraper.base import BaseScraper, ScrapedItem
 
 
@@ -14,11 +15,13 @@ class ScraperOrchestrator:
         self.corporate_scraper = CorporateSiteScraper()
         self.google_scraper = GoogleSearchScraper()
         self.news_scraper = GoogleNewsScraper()
+        self.perplexity_scraper = PerplexityScraper()
         self.scrapers = [
             self.linkedin_scraper,
             self.corporate_scraper,
             self.google_scraper,
             self.news_scraper,
+            self.perplexity_scraper,
         ]
 
     @property
