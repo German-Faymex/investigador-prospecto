@@ -56,7 +56,7 @@ class LinkedInScraper(BaseScraper):
             if engine == "google":
                 items = await self._search_google(query)
             else:
-                items = await self._search_ddg_api(query)
+                items = await self._search_ddg_api(query, company=company)
 
             if items:
                 print(f"[LinkedInScraper] Encontrado con: {engine} - {query[:60]}...")
@@ -83,22 +83,40 @@ class LinkedInScraper(BaseScraper):
 
         return self._parse_google_results(html)
 
-    async def _search_ddg_api(self, query: str) -> list[ScrapedItem]:
-        """Search LinkedIn profiles via ddgs library (API-based, works from datacenter IPs)."""
-        results = await self._ddg_text_search(query, max_results=5)
-        items = []
+    async def _search_ddg_api(self, query: str, company: str = "") -> list[ScrapedItem]:
+        """Search LinkedIn profiles via ddgs library (API-based, works from datacenter IPs).
+
+        If company is provided, prioritize results that mention the company name
+        to avoid returning profiles of homonymous people at different companies.
+        """
+        results = await self._ddg_text_search(query, max_results=8)
+        company_lower = company.lower().strip() if company else ""
+        # Significant words of company name for matching (skip short words like SpA, SA, de)
+        company_words = [w for w in company_lower.split() if len(w) > 3] if company_lower else []
+
+        matching = []
+        non_matching = []
         for r in results:
             url = r.get("href", "")
             if "linkedin.com" not in url:
                 continue
-            items.append(ScrapedItem(
+            item = ScrapedItem(
                 url=url,
                 title=r.get("title", ""),
                 snippet=r.get("body", ""),
                 source="linkedin",
-            ))
-            if len(items) >= 3:
-                break
+            )
+            # Check if result mentions the target company
+            item_text = f"{item.title} {item.snippet}".lower()
+            if company_lower and (company_lower in item_text or any(w in item_text for w in company_words)):
+                matching.append(item)
+            else:
+                non_matching.append(item)
+
+        # Prioritize matching results; only use non-matching if no matches found
+        items = matching[:3] if matching else non_matching[:2]
+        if matching and non_matching:
+            print(f"[LinkedInScraper] Filtrado anti-homonimia: {len(matching)} match, {len(non_matching)} descartados")
         return items
 
     def _parse_google_results(self, html: str) -> list[ScrapedItem]:

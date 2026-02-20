@@ -49,11 +49,20 @@ class ResearchService:
             items = await self.orchestrator.search_all(name, company, role, location)
 
             if items:
-                # 2. Guardar fuentes raw
-                result.raw_sources = [
-                    {"url": it.url, "title": it.title, "source": it.source}
-                    for it in items if it.url
-                ]
+                # 2. Guardar fuentes raw (filtrar LinkedIn de homónimos)
+                company_lower = company.lower().strip()
+                result.raw_sources = []
+                for it in items:
+                    if not it.url:
+                        continue
+                    # Filter LinkedIn results: only keep those mentioning the target company
+                    if it.source == "linkedin" or ("linkedin.com/in/" in it.url and it.source in ("duckduckgo", "google_search")):
+                        item_text = f"{it.title} {it.snippet}".lower()
+                        if company_lower and not self._text_mentions_company(item_text, company_lower):
+                            continue
+                    result.raw_sources.append(
+                        {"url": it.url, "title": it.title, "source": it.source}
+                    )
 
                 # 3. Verificar hechos cruzando fuentes
                 verified_facts = self.verifier.verify(items)
@@ -296,8 +305,14 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
         Cuando LinkedIn bloquea acceso directo (authwall), los buscadores aún devuelven
         snippets con datos valiosos: headline, educación, ubicación. Este método los parsea
         para llenar campos que quedaron como 'No disponible'.
+
+        IMPORTANTE: Solo usa items que mencionan la empresa del prospecto para evitar
+        mezclar datos de personas homónimas en otras empresas.
         """
-        # Recopilar texto de items que contienen datos de LinkedIn
+        company = result.empresa.get("nombre", "")
+        company_lower = company.lower().strip()
+
+        # Recopilar texto SOLO de items que correspondan a la empresa correcta
         linkedin_texts = []
         for item in items:
             is_linkedin = (
@@ -305,12 +320,21 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
                 or item.source == "linkedin"
                 or item.source == "perplexity_persona"
             )
-            if is_linkedin and (item.title or item.snippet):
-                linkedin_texts.append(f"{item.title} {item.snippet}")
+            if not is_linkedin or not (item.title or item.snippet):
+                continue
+            # Filtrar: solo usar si el item menciona la empresa del prospecto
+            item_text = f"{item.title} {item.snippet}".lower()
+            if company_lower and not self._text_mentions_company(item_text, company_lower):
+                print(f"[Research] Descartando LinkedIn item (empresa no coincide): {item.title[:60]}...")
+                continue
+            linkedin_texts.append(f"{item.title} {item.snippet}")
 
         # También buscar items de Google/DDG que tengan URLs de LinkedIn
         for item in items:
             if item.source in ("google_search", "duckduckgo") and "linkedin.com" in item.url:
+                item_text = f"{item.title} {item.snippet}".lower()
+                if company_lower and not self._text_mentions_company(item_text, company_lower):
+                    continue
                 linkedin_texts.append(f"{item.title} {item.snippet}")
 
         if not linkedin_texts:
@@ -347,8 +371,9 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
         # Patrones comunes de educación en LinkedIn
         education_patterns = [
             # "Educación: Universidad de Atacama" (formato Perplexity/LinkedIn enriquecido)
-            r"[Ee]ducaci[oó]n:\s*(.+?)(?:\||$|\.|Ubicaci[oó]n|Logros|Cargo|Empresa|Trayectoria)",
-            # "alumniOf" / universidades conocidas
+            # Must start with full word "Educacion" (not partial "ucation")
+            r"(?:^|[\s|])Educaci[oó]n:\s*(.+?)(?:\||$|\.|Ubicaci[oó]n|Logros|Cargo|Empresa|Trayectoria|Location)",
+            # "alumniOf" / universidades conocidas chilenas
             r"(?:Universidad|Pontificia|Instituto|Escuela|Facultad|UTFSM|USACH|U\. de|PUC|UC)[^|.]*(?:de\s+\w+[^|.]*)?",
             # Grados académicos
             r"(?:Ingenier[oa]\s+Civil[^|.]*|MBA[^|.]*|Máster[^|.]*|Master[^|.]*|Magíster[^|.]*|Doctorad[oa][^|.]*|Licenciad[oa][^|.]*)",
@@ -359,8 +384,14 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
             matches = re.findall(pattern, text, re.IGNORECASE)
             for match in matches:
                 clean = match.strip().strip("|.,; ")
-                if clean and len(clean) > 3 and clean not in results:
-                    results.append(clean)
+                # Skip fragments from raw LinkedIn meta (e.g., "ucation: Lone Star College · Location: Peru")
+                if not clean or len(clean) <= 3:
+                    continue
+                if clean.lower().startswith("ucation"):
+                    continue
+                if clean in results:
+                    continue
+                results.append(clean)
 
         if results:
             # Deduplicar y combinar
@@ -424,6 +455,22 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
             best = max(headlines, key=len)
             return best
         return ""
+
+    @staticmethod
+    def _text_mentions_company(text: str, company_lower: str) -> bool:
+        """Check if text mentions the target company (case-insensitive).
+
+        Handles common variations: 'Faymex' matches 'faymex spa', 'FAYMEX SpA', etc.
+        Also checks individual significant words for multi-word company names.
+        """
+        if company_lower in text:
+            return True
+        # Check significant words (>3 chars) of company name
+        company_words = [w for w in company_lower.split() if len(w) > 3]
+        for word in company_words:
+            if word in text:
+                return True
+        return False
 
     @staticmethod
     def _fill_if_empty(d: dict, key: str, value: str):
