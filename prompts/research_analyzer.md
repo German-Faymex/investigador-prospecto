@@ -97,8 +97,8 @@ El `hallazgo_tipo` debe ser el MEJOR tipo encontrado entre todos los hallazgos.
    - **LinkedIn** (perfil directo): MÁS confiable para cargo actual, trayectoria, educación, ubicación
    - **Perplexity**: Confiable para datos generales de persona y empresa
    - **Sitio web corporativo**: Confiable para datos de empresa
-   - **ZoomInfo, RocketReach, TheOrg**: BAJA confiabilidad para cargo de personas en empresas pequeñas/medianas. Estos sitios frecuentemente muestran cargos DESACTUALIZADOS o INCORRECTOS. Si LinkedIn dice un cargo y ZoomInfo dice otro, SIEMPRE preferir LinkedIn.
-   - **Regla**: Si un dato SOLO aparece en ZoomInfo/RocketReach y NO está en LinkedIn ni Perplexity, márcalo como "partial" y NO lo uses como cargo principal.
+   - **ZoomInfo, RocketReach, TheOrg**: Confiabilidad VARIABLE para cargo. Pueden tener datos más recientes que los snippets de LinkedIn en buscadores, pero también pueden estar desactualizados.
+   - **Regla de cargo**: Si LinkedIn (headline/perfil directo) y ZoomInfo muestran cargos diferentes, evalúa cuál parece más reciente. Si ZoomInfo dice un cargo más específico/reciente (ej: "Jefe de X") y LinkedIn snippet muestra uno más genérico/viejo, puedes usar el de ZoomInfo pero márcalo como "partial". Si el usuario proporcionó un cargo conocido en el campo "Cargo conocido", dale prioridad.
 5c. **Trayectoria - ORDEN CRONOLÓGICO INVERSO (más reciente primero)**:
    - La trayectoria SIEMPRE debe empezar con el cargo ACTUAL (el más reciente)
    - Formato: "Actualmente [cargo actual] en [empresa]. Anteriormente [cargo anterior] en [empresa anterior], [otro cargo] en [otra empresa]."

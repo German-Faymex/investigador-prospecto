@@ -49,8 +49,10 @@ class ResearchService:
             items = await self.orchestrator.search_all(name, company, role, location)
 
             if items:
-                # 2. Guardar fuentes raw (filtrar LinkedIn de homónimos)
+                # 2. Guardar fuentes raw (filtrar homónimos y fuentes no útiles)
                 company_lower = company.lower().strip()
+                # Sites that don't provide useful clickable info for the user
+                _noisy_domains = ("zoominfo.com", "rocketreach.co", "theorg.com", "twitchtracker.com", "chiletrabajos.cl")
                 result.raw_sources = []
                 for it in items:
                     if not it.url:
@@ -60,6 +62,11 @@ class ResearchService:
                         item_text = f"{it.title} {it.snippet}".lower()
                         if company_lower and not self._text_mentions_company(item_text, company_lower):
                             continue
+                    # Filter out noisy/paywalled sources from displayed sources
+                    # (they still reach the LLM via verified_facts for cross-referencing)
+                    url_lower = it.url.lower()
+                    if any(d in url_lower for d in _noisy_domains):
+                        continue
                     result.raw_sources.append(
                         {"url": it.url, "title": it.title, "source": it.source}
                     )
@@ -222,9 +229,10 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
             "",
             "## Datos recopilados y verificados",
             "",
-            "**ADVERTENCIA sobre fuentes**: Los datos de ZoomInfo y RocketReach frecuentemente tienen "
-            "cargos DESACTUALIZADOS o INCORRECTOS, especialmente para empresas pequeñas/medianas. "
-            "Si LinkedIn muestra un cargo diferente al de ZoomInfo, SIEMPRE preferir LinkedIn.",
+            "**ADVERTENCIA sobre fuentes**: Los snippets de LinkedIn en buscadores pueden mostrar "
+            "cargos DESACTUALIZADOS (el headline no siempre se actualiza). ZoomInfo/RocketReach también "
+            "pueden estar desactualizados. Si el usuario proporcionó un cargo en 'Cargo conocido', "
+            "dale MÁXIMA prioridad ya que es la fuente más reciente.",
             "",
         ])
 
