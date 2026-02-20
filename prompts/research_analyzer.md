@@ -100,10 +100,22 @@ El `hallazgo_tipo` debe ser el MEJOR tipo encontrado entre todos los hallazgos.
 ## Reglas Anti-Alucinación (CRÍTICAS)
 
 8. **NUNCA inventes información sobre la PERSONA** que no esté presente en los datos proporcionados (cargo, trayectoria, educación, etc.). Si un dato personal no aparece en las fuentes, deja el campo vacío o pon "No disponible".
-   - **Excepción para datos de EMPRESA**: Si la empresa es conocida públicamente (ej: Copec, CODELCO, BHP, Enel), PUEDES completar los campos básicos de empresa (industria, descripción, productos/servicios) usando tu conocimiento general. Esto NO es invención — es información pública verificable. Marca estos datos como fuente "conocimiento general" en los hallazgos.
+   - **Excepción para datos de EMPRESA**: Si la empresa es conocida públicamente (ej: Copec, CODELCO, BHP, Enel, Anglo American), PUEDES completar los campos básicos de empresa (industria, descripción, productos/servicios) usando tu conocimiento general. Esto NO es invención — es información pública verificable. Marca estos datos como fuente "conocimiento general" en los hallazgos.
 9. **Para cada hallazgo, INCLUYE las URLs** de las fuentes originales en el campo `sources`. Copia las URLs exactas que aparecen en los datos proporcionados.
 10. Si un dato solo aparece en 1 fuente, su confidence debe ser `"partial"`. Si aparece en 2+ fuentes, puede ser `"verified"`.
 11. **NO incluyas hallazgos sin fuente**. Si no hay una URL que respalde un dato, no lo conviertas en hallazgo.
 12. No inventes noticias, montos, contratos, fechas ni logros que no estén explícitamente en los datos scrapeados.
 13. **Números del sitio web corporativo**: Si el sitio web de la empresa menciona cifras, cítalas EXACTAMENTE como aparecen, con la unidad correcta (horas, proyectos, empleados, etc.). NO cambies la unidad ni confundas métricas distintas. Ejemplo: si dice "+89500 horas efectivas" NO lo conviertas en "+89500 proyectos". Siempre incluye "según su sitio web" y la URL fuente.
-14. **Datos de LinkedIn**: Si los datos incluyen información de LinkedIn (cargo, experiencia, educación, ubicación), ÚSALOS para llenar los campos de persona. La fuente LinkedIn es valiosa para datos personales.
+
+## Extracción de Datos de LinkedIn (IMPORTANTE)
+
+14. **Datos de LinkedIn**: Los datos de LinkedIn son la fuente MÁS VALIOSA para información personal. EXTRAE MÁXIMO de ellos:
+    - **Títulos LinkedIn** tienen formato: "Nombre - Headline | LinkedIn". El headline contiene cargo, título profesional, empresa.
+    - **Snippets LinkedIn** contienen: headline completo, educación, ubicación geográfica.
+    - Si ves texto como "Ingeniero Civil en X, MBA y Máster en Y, Cargo en Empresa" → esto es trayectoria Y educación.
+    - Si ves "Universidad de X" o "Pontificia Universidad Católica" → esto es educación.
+    - Si ves una ciudad o "Chile" en contexto LinkedIn → esto es ubicación.
+    - **Trayectoria**: Usa el headline de LinkedIn como base. Si dice "Ingeniero Civil en Metalurgia, MBA", eso ES la trayectoria profesional.
+    - **Educación**: Extrae universidades y títulos mencionados en cualquier parte de los datos.
+    - **Ubicación**: Extrae ciudad/país de cualquier mención geográfica.
+15. **Fuentes Perplexity**: Los datos de Perplexity (marcados como perplexity_persona o perplexity_empresa) provienen de búsqueda web real y son confiables para datos de persona. ÚSALOS para llenar campos de persona y empresa.

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from scraper.orchestrator import ScraperOrchestrator
+from scraper.base import ScrapedItem
 from services.verifier import Verifier
 from services.llm_client import LLMClient
 
@@ -76,8 +77,9 @@ class ResearchService:
                         # Asegurar que sitio_web viene del dominio descubierto
                         if corporate_domain and not result.empresa.get("sitio_web"):
                             result.empresa["sitio_web"] = corporate_domain
-                        # Enriquecer campos vacíos con datos de Perplexity
+                        # Enriquecer campos vacíos con datos de Perplexity y LinkedIn
                         self._enrich_from_perplexity(result)
+                        self._enrich_from_scraped_items(result, items)
                         return result
 
             # Fallback: si no hay datos de scraping, investigar directo con LLM
@@ -287,6 +289,141 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
                 result.cargo_descubierto = pplx_cargo
 
         print(f"[Research] Resultado enriquecido con datos de Perplexity")
+
+    def _enrich_from_scraped_items(self, result: ResearchResult, items: list[ScrapedItem]):
+        """Enriquecer campos vacíos de persona con datos extraídos de snippets de LinkedIn.
+
+        Cuando LinkedIn bloquea acceso directo (authwall), los buscadores aún devuelven
+        snippets con datos valiosos: headline, educación, ubicación. Este método los parsea
+        para llenar campos que quedaron como 'No disponible'.
+        """
+        # Recopilar texto de items que contienen datos de LinkedIn
+        linkedin_texts = []
+        for item in items:
+            is_linkedin = (
+                "linkedin.com" in item.url
+                or item.source == "linkedin"
+                or item.source == "perplexity_persona"
+            )
+            if is_linkedin and (item.title or item.snippet):
+                linkedin_texts.append(f"{item.title} {item.snippet}")
+
+        # También buscar items de Google/DDG que tengan URLs de LinkedIn
+        for item in items:
+            if item.source in ("google_search", "duckduckgo") and "linkedin.com" in item.url:
+                linkedin_texts.append(f"{item.title} {item.snippet}")
+
+        if not linkedin_texts:
+            return
+
+        combined = " | ".join(linkedin_texts)
+        persona = result.persona
+        _fill = self._fill_if_empty
+
+        # Extraer educación de snippets de LinkedIn
+        education = self._extract_education(combined)
+        if education:
+            _fill(persona, "educacion", education)
+
+        # Extraer ubicación de snippets de LinkedIn
+        location = self._extract_location(combined)
+        if location:
+            _fill(persona, "ubicacion", location)
+
+        # Extraer trayectoria/headline de títulos LinkedIn
+        trayectoria = self._extract_trayectoria(linkedin_texts, result.persona.get("nombre", ""))
+        if trayectoria:
+            _fill(persona, "trayectoria", trayectoria)
+
+        if any(field_filled := [education, location, trayectoria]):
+            print(f"[Research] Enriquecido con datos de LinkedIn snippets: "
+                  f"edu={'✓' if education else '✗'} "
+                  f"loc={'✓' if location else '✗'} "
+                  f"tray={'✓' if trayectoria else '✗'}")
+
+    @staticmethod
+    def _extract_education(text: str) -> str:
+        """Extraer información de educación de texto de LinkedIn."""
+        # Patrones comunes de educación en LinkedIn
+        education_patterns = [
+            # "Educación: Universidad de Atacama" (formato Perplexity/LinkedIn enriquecido)
+            r"[Ee]ducaci[oó]n:\s*(.+?)(?:\||$|\.|Ubicaci[oó]n|Logros|Cargo|Empresa|Trayectoria)",
+            # "alumniOf" / universidades conocidas
+            r"(?:Universidad|Pontificia|Instituto|Escuela|Facultad|UTFSM|USACH|U\. de|PUC|UC)[^|.]*(?:de\s+\w+[^|.]*)?",
+            # Grados académicos
+            r"(?:Ingenier[oa]\s+Civil[^|.]*|MBA[^|.]*|Máster[^|.]*|Master[^|.]*|Magíster[^|.]*|Doctorad[oa][^|.]*|Licenciad[oa][^|.]*)",
+        ]
+
+        results = []
+        for pattern in education_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            for match in matches:
+                clean = match.strip().strip("|.,; ")
+                if clean and len(clean) > 3 and clean not in results:
+                    results.append(clean)
+
+        if results:
+            # Deduplicar y combinar
+            return ". ".join(results[:3])
+        return ""
+
+    @staticmethod
+    def _extract_location(text: str) -> str:
+        """Extraer ubicación de texto de LinkedIn."""
+        # Patrones de ubicación
+        location_patterns = [
+            # "Ubicación: Santiago, Chile" (formato enriquecido)
+            r"[Uu]bicaci[oó]n:\s*([^|.]+?)(?:\||$|\.)",
+            # "Chile" o "Santiago, Chile" al final o entre separadores
+            r"(?:^|\||\.\s+)((?:Santiago|Antofagasta|Calama|Copiap[oó]|La Serena|Vi[ñn]a del Mar|Valpara[ií]so|Concepci[oó]n|Temuco|Rancagua|Iquique|Arica|Puerto Montt|Punta Arenas)(?:\s*,\s*(?:Chile|Regi[oó]n\s+[^|.]+))?)",
+            # País solo
+            r"(?:^|\||\.\s+)(Chile)(?:\s*\||$|\.)",
+        ]
+
+        for pattern in location_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                loc = match.group(1).strip().strip("|.,; ")
+                if loc and len(loc) >= 3:
+                    return loc
+
+        return ""
+
+    @staticmethod
+    def _extract_trayectoria(linkedin_texts: list[str], name: str) -> str:
+        """Extraer resumen de trayectoria/headline de títulos LinkedIn.
+
+        LinkedIn titles have format: "Name - Headline | LinkedIn"
+        LinkedIn snippets often contain the full headline with titles and education.
+        """
+        headlines = []
+        name_parts = name.lower().split()
+
+        for text in linkedin_texts:
+            # Patrón de título LinkedIn: "Nombre - Headline | LinkedIn"
+            # También: "Nombre - Headline - Empresa | LinkedIn"
+            match = re.search(
+                r"(?:" + re.escape(name) + r"|" + r"\s+".join(re.escape(p) for p in name_parts) + r")\s*[-–—]\s*(.+?)(?:\s*\|\s*LinkedIn|\s*$)",
+                text,
+                re.IGNORECASE,
+            )
+            if match:
+                headline = match.group(1).strip().strip("| ")
+                if headline and len(headline) > 5:
+                    headlines.append(headline)
+
+            # Patrón alternativo: "Trayectoria: ..." (formato Perplexity)
+            match2 = re.search(r"Trayectoria:\s*(.+?)(?:\||$|Educaci[oó]n|Logros)", text, re.IGNORECASE)
+            if match2:
+                tray = match2.group(1).strip().strip("|.,; ")
+                if tray and len(tray) > 5 and tray not in ("No disponible",):
+                    headlines.append(tray)
+
+        if headlines:
+            # Usar el headline más largo
+            best = max(headlines, key=len)
+            return best
+        return ""
 
     @staticmethod
     def _fill_if_empty(d: dict, key: str, value: str):

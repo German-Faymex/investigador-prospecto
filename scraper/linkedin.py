@@ -20,23 +20,42 @@ class LinkedInScraper(BaseScraper):
         keywords = quote_plus(f"{name} {company}")
         return f"https://www.linkedin.com/search/results/people/?keywords={keywords}"
 
+    @staticmethod
+    def _strip_accents(text: str) -> str:
+        """Remove accents from text: 'Juliá' → 'Julia'."""
+        normalized = unicodedata.normalize("NFKD", text)
+        return "".join(c for c in normalized if not unicodedata.combining(c))
+
     async def search(self, name: str, company: str, role: str = "", location: str = "") -> list[ScrapedItem]:
-        query = f'site:linkedin.com/in/ "{name}" "{company}"'
+        name_clean = self._strip_accents(name)
 
-        # Intentar Google primero
-        items = await self._search_google(query)
+        # Cascada de búsquedas de más específica a más flexible
+        search_attempts = [
+            # 1. Google exacto
+            ("google", f'site:linkedin.com/in/ "{name}" "{company}"'),
+            # 2. Google sin acentos
+            ("google", f'site:linkedin.com/in/ "{name_clean}" "{company}"'),
+            # 3. Google más flexible (sin quotes en company)
+            ("google", f'site:linkedin.com "{name_clean}" {company}'),
+            # 4. DDG con site:
+            ("ddg", f'{name_clean} {company} site:linkedin.com/in/'),
+            # 5. DDG sin site: restriction
+            ("ddg", f'"{name_clean}" "{company}" linkedin'),
+            # 6. DDG ultra flexible
+            ("ddg", f'{name_clean} {company} linkedin perfil'),
+        ]
 
-        # Fallback a DuckDuckGo
-        if not items:
-            print("[LinkedInScraper] Google sin resultados, intentando DuckDuckGo")
-            ddg_query = f'{name} {company} site:linkedin.com/in/'
-            items = await self._search_duckduckgo(ddg_query)
+        items = []
+        for engine, query in search_attempts:
+            if engine == "google":
+                items = await self._search_google(query)
+            else:
+                items = await self._search_duckduckgo(query)
 
-        # Fallback: DDG sin restricción site: (más flexible)
-        if not items:
-            print("[LinkedInScraper] DDG con site: sin resultados, intentando sin restricción")
-            ddg_query = f'{name} {company} linkedin perfil'
-            items = await self._search_duckduckgo(ddg_query)
+            if items:
+                print(f"[LinkedInScraper] Encontrado con: {engine} - {query[:60]}...")
+                break
+            print(f"[LinkedInScraper] Sin resultados: {engine} - {query[:60]}...")
 
         # Último recurso: intentar URLs directas de perfil LinkedIn
         if not items:
@@ -100,7 +119,15 @@ class LinkedInScraper(BaseScraper):
         soup = BeautifulSoup(html, "html.parser")
         items = []
 
-        for title_el in soup.select("a.result__a"):
+        # Selector principal de DDG HTML
+        result_links = soup.select("a.result__a")
+        # Fallback: DDG cambia selectores ocasionalmente
+        if not result_links:
+            result_links = soup.select("h2 a[href*='linkedin.com']")
+        if not result_links:
+            result_links = soup.select("a[href*='linkedin.com']")
+
+        for title_el in result_links:
             url = title_el.get("href", "")
             if not url or "duckduckgo.com/y.js" in url:
                 continue
@@ -108,8 +135,17 @@ class LinkedInScraper(BaseScraper):
                 continue
 
             title = title_el.get_text(strip=True)
+            # Buscar snippet en el mismo contenedor padre
             parent = title_el.find_parent("div", class_="result")
-            snippet_el = parent.select_one("a.result__snippet") if parent else None
+            if not parent:
+                parent = title_el.find_parent("div")
+            snippet_el = None
+            if parent:
+                snippet_el = (
+                    parent.select_one("a.result__snippet")
+                    or parent.select_one(".result__snippet")
+                    or parent.select_one("span.result__snippet")
+                )
             snippet = snippet_el.get_text(strip=True) if snippet_el else ""
 
             items.append(ScrapedItem(
@@ -142,11 +178,15 @@ class LinkedInScraper(BaseScraper):
         # nombre-apellido1 (sin segundo apellido)
         if len(parts) >= 3:
             slugs.append(f"{parts[0]}-{parts[1]}")
-        # Variantes con prefijo de país
-        for prefix in ["", "cl."]:
-            for slug in list(slugs):
-                if prefix:
-                    slugs.append(slug)  # Ya está sin prefijo
+        # nombre-apellido2 (a veces solo usan un apellido distinto)
+        if len(parts) >= 3:
+            slugs.append(f"{parts[0]}-{parts[2]}")
+        # Variantes con sufijo numérico (LinkedIn agrega números para duplicados)
+        base_slugs = list(slugs)
+        for slug in base_slugs:
+            for suffix in ["1", "2", "a", "b"]:
+                slugs.append(f"{slug}-{suffix}")
+
         return list(dict.fromkeys(slugs))  # Dedup preservando orden
 
     async def _try_direct_profile(self, name: str) -> list[ScrapedItem]:
@@ -155,7 +195,8 @@ class LinkedInScraper(BaseScraper):
         if not slugs:
             return []
 
-        for slug in slugs[:3]:  # Máximo 3 intentos
+        authwall_count = 0
+        for slug in slugs[:6]:  # Más intentos
             for domain in ["www.linkedin.com", "cl.linkedin.com"]:
                 url = f"https://{domain}/in/{slug}"
                 try:
@@ -165,8 +206,12 @@ class LinkedInScraper(BaseScraper):
 
                     # Detectar authwall
                     if "authwall" in html.lower() or "sign-in" in html[:2000].lower():
+                        authwall_count += 1
                         print(f"[LinkedInScraper] Authwall en perfil directo: {url}")
-                        return []  # LinkedIn bloquea, no intentar más
+                        if authwall_count >= 2:
+                            print("[LinkedInScraper] Múltiples authwalls, abortando")
+                            return []
+                        continue  # Intentar siguiente slug en vez de abortar
 
                     soup = BeautifulSoup(html, "html.parser")
 
@@ -241,13 +286,13 @@ class LinkedInScraper(BaseScraper):
                                     loc = addr.get("addressLocality", "")
                                     region = addr.get("addressRegion", "")
                                     if loc or region:
-                                        ld_parts.append(f"{loc}, {region}".strip(", "))
+                                        ld_parts.append(f"Ubicación: {loc}, {region}".strip(", "))
                             # Educación
                             alumni = ld_data.get("alumniOf")
                             if isinstance(alumni, list):
                                 for school in alumni[:2]:
                                     if isinstance(school, dict) and school.get("name"):
-                                        ld_parts.append(school["name"])
+                                        ld_parts.append(f"Educación: {school['name']}")
                         if ld_parts:
                             enriched_parts.append(" | ".join(ld_parts))
                     except (json.JSONDecodeError, TypeError):

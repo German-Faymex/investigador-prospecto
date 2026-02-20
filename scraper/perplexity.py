@@ -55,7 +55,7 @@ class PerplexityScraper(BaseScraper):
             '  "persona": {\n'
             '    "nombre_completo": "", "cargo_actual": "", "empresa_actual": "",\n'
             '    "linkedin_url": "", "trayectoria": "", "educacion": "",\n'
-            '    "logros_recientes": []\n'
+            '    "ubicacion": "", "logros_recientes": []\n'
             "  },\n"
             '  "empresa": {\n'
             '    "nombre": "", "industria": "", "descripcion": "",\n'
@@ -70,9 +70,18 @@ class PerplexityScraper(BaseScraper):
         role_part = f" ({role})" if role else ""
         user_prompt = (
             f"Investiga a {name}{role_part} de la empresa {company}{location_part}.\n\n"
-            f"Busca:\n"
-            f"1. Perfil profesional de {name} en {company} (cargo, trayectoria, LinkedIn, educación)\n"
-            f"2. Información de {company} (industria, productos/servicios, tamaño, ubicación, sitio web)\n\n"
+            f"Busca ESPECÍFICAMENTE:\n"
+            f"1. El perfil de LinkedIn de {name} - busca su headline, experiencia laboral, "
+            f"educación universitaria, ubicación geográfica (ciudad/país)\n"
+            f"2. Si no encuentras LinkedIn, busca cualquier perfil público con su trayectoria "
+            f"profesional, formación académica y ubicación\n"
+            f"3. Información de {company}: industria, productos/servicios, tamaño, sitio web, "
+            f"descripción del negocio, operaciones principales\n\n"
+            f"CAMPOS PRIORITARIOS para la persona:\n"
+            f"- educacion: nombre de universidad/institución y título/carrera obtenida\n"
+            f"- ubicacion: ciudad y país donde trabaja o reside\n"
+            f"- trayectoria: resumen de su carrera profesional y cargos anteriores\n"
+            f"- cargo_actual: su puesto actual en {company}\n\n"
             f"IMPORTANTE: {company} puede tener homónimos en otros países. "
             f"Asegúrate de que la información corresponda a la empresa correcta"
             f"{location_part}.\n"
@@ -149,6 +158,8 @@ class PerplexityScraper(BaseScraper):
                 parts.append(f"Trayectoria: {persona['trayectoria']}")
             if persona.get("educacion"):
                 parts.append(f"Educación: {persona['educacion']}")
+            if persona.get("ubicacion"):
+                parts.append(f"Ubicación: {persona['ubicacion']}")
             if persona.get("logros_recientes"):
                 logros = [l for l in persona["logros_recientes"] if l]
                 if logros:
