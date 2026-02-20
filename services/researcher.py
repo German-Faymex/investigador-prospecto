@@ -378,16 +378,20 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
 
     @staticmethod
     def _extract_education(text: str) -> str:
-        """Extraer información de educación de texto de LinkedIn."""
+        """Extraer información de educación de texto de LinkedIn.
+
+        Only extracts clean education data: university names, degree titles.
+        Avoids capturing long fragments from LinkedIn snippets that happen to
+        contain education keywords mixed with other content.
+        """
         # Patrones comunes de educación en LinkedIn
         education_patterns = [
             # "Educación: Universidad de Atacama" (formato Perplexity/LinkedIn enriquecido)
-            # Must start with full word "Educacion" (not partial "ucation")
-            r"(?:^|[\s|])Educaci[oó]n:\s*(.+?)(?:\||$|\.|Ubicaci[oó]n|Logros|Cargo|Empresa|Trayectoria|Location)",
-            # "alumniOf" / universidades conocidas chilenas
-            r"(?:Universidad|Pontificia|Instituto|Escuela|Facultad|UTFSM|USACH|U\. de|PUC|UC)[^|.]*(?:de\s+\w+[^|.]*)?",
-            # Grados académicos
-            r"(?:Ingenier[oa]\s+Civil[^|.]*|MBA[^|.]*|Máster[^|.]*|Master[^|.]*|Magíster[^|.]*|Doctorad[oa][^|.]*|Licenciad[oa][^|.]*)",
+            r"(?:^|[\s|])Educaci[oó]n:\s*(.{5,80}?)(?:\||$|\.|Ubicaci[oó]n|Logros|Cargo|Empresa|Trayectoria|Location)",
+            # "alumniOf" / universidades conocidas (limit to 80 chars to avoid long snippet fragments)
+            r"((?:Universidad|Pontificia|Instituto|Escuela|Facultad|UTFSM|USACH|U\. de|PUC|UC|IESA|DUOC)\s[^|.]{3,60})",
+            # Grados académicos (limit capture to avoid long garbage)
+            r"((?:Ingenier[oa]\s+Civil|MBA|Máster|Master|Magíster|Doctorad[oa]|Licenciad[oa])\s*(?:en\s)?[^|.]{0,50})",
         ]
 
         results = []
@@ -395,17 +399,22 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
             matches = re.findall(pattern, text, re.IGNORECASE)
             for match in matches:
                 clean = match.strip().strip("|.,; ")
-                # Skip fragments from raw LinkedIn meta (e.g., "ucation: Lone Star College · Location: Peru")
                 if not clean or len(clean) <= 3:
                     continue
                 if clean.lower().startswith("ucation"):
+                    continue
+                # Skip if it looks like a snippet fragment (contains company/business words)
+                lower = clean.lower()
+                if any(w in lower for w in ("nuestro", "servicios", "empresa", "faymex", "experiencia en la")):
+                    continue
+                # Skip if too long (likely a snippet fragment, not a clean education entry)
+                if len(clean) > 100:
                     continue
                 if clean in results:
                     continue
                 results.append(clean)
 
         if results:
-            # Deduplicar y combinar
             return ". ".join(results[:3])
         return ""
 
