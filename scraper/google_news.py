@@ -1,4 +1,4 @@
-"""Scraper de noticias: Google News con fallback a DuckDuckGo."""
+"""Scraper de noticias: Google News con fallback a DuckDuckGo (ddgs API)."""
 from bs4 import BeautifulSoup
 
 from scraper.base import BaseScraper, ScrapedItem
@@ -15,13 +15,10 @@ class GoogleNewsScraper(BaseScraper):
         # Intentar Google News primero
         items = await self._search_google_news(query)
 
-        # Fallback a DuckDuckGo si Google falla
-        # Delay para dar prioridad DDG al LinkedIn scraper (evita rate limiting 202)
+        # Fallback a DDG news API (ddgs library, funciona desde datacenter IPs)
         if not items:
-            import asyncio
-            await asyncio.sleep(4)
-            print("[GoogleNewsScraper] Google News sin resultados, intentando DuckDuckGo")
-            items = await self._search_duckduckgo_news(query)
+            print("[GoogleNewsScraper] Google News sin resultados, intentando DDG News API")
+            items = await self._search_ddg_news_api(query)
 
         return items
 
@@ -40,12 +37,23 @@ class GoogleNewsScraper(BaseScraper):
 
         return self._parse_google_results(html)
 
-    async def _search_duckduckgo_news(self, query: str) -> list[ScrapedItem]:
-        """Buscar noticias en DuckDuckGo HTML."""
-        html = await self._ddg_post(f"{query} noticias")
-        if not html:
-            return []
-        return self._parse_ddg_results(html)
+    async def _search_ddg_news_api(self, query: str) -> list[ScrapedItem]:
+        """Search news via ddgs library (API-based, works from datacenter IPs)."""
+        max_results = self.settings.scraper.max_results_per_source
+        results = await self._ddg_news_search(query, max_results=max_results)
+        items = []
+        for r in results:
+            url = r.get("url", "")
+            if not url:
+                continue
+            items.append(ScrapedItem(
+                url=url,
+                title=r.get("title", ""),
+                snippet=r.get("body", ""),
+                source="duckduckgo_news",
+                timestamp=r.get("date", ""),
+            ))
+        return items[:max_results]
 
     def _parse_google_results(self, html: str) -> list[ScrapedItem]:
         soup = BeautifulSoup(html, "html.parser")
@@ -77,32 +85,6 @@ class GoogleNewsScraper(BaseScraper):
                 snippet=snippet,
                 source="google_news",
                 timestamp=timestamp,
-            ))
-
-            if len(items) >= self.settings.scraper.max_results_per_source:
-                break
-
-        return items
-
-    def _parse_ddg_results(self, html: str) -> list[ScrapedItem]:
-        soup = BeautifulSoup(html, "html.parser")
-        items = []
-
-        for title_el in soup.select("a.result__a"):
-            url = title_el.get("href", "")
-            if not url or "duckduckgo.com/y.js" in url or not url.startswith("http"):
-                continue
-
-            title = title_el.get_text(strip=True)
-            parent = title_el.find_parent("div", class_="result")
-            snippet_el = parent.select_one("a.result__snippet") if parent else None
-            snippet = snippet_el.get_text(strip=True) if snippet_el else ""
-
-            items.append(ScrapedItem(
-                url=url,
-                title=title,
-                snippet=snippet,
-                source="duckduckgo_news",
             ))
 
             if len(items) >= self.settings.scraper.max_results_per_source:

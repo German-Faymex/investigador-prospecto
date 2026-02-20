@@ -117,18 +117,17 @@ class CorporateSiteScraper(BaseScraper):
         return True  # Sin descalificadores, aceptar
 
     async def _find_domain_via_ddg(self, company: str) -> str | None:
-        """Buscar dominio vía DuckDuckGo."""
-        html = await self._ddg_post(f'"{company}" sitio web oficial')
-        if not html:
+        """Buscar dominio vía ddgs API (funciona desde datacenter IPs)."""
+        results = await self._ddg_text_search(f'"{company}" sitio web oficial', max_results=5)
+        if not results:
             return None
 
-        soup = BeautifulSoup(html, "html.parser")
         skip = {"linkedin.com", "facebook.com", "twitter.com", "instagram.com",
                 "youtube.com", "wikipedia.org", "google.com"}
 
-        for a in soup.select("a.result__a"):
-            url = a.get("href", "")
-            if not url or "duckduckgo.com" in url or not url.startswith("http"):
+        for r in results:
+            url = r.get("href", "")
+            if not url or not url.startswith("http"):
                 continue
             parsed = urlparse(url)
             if not any(s in parsed.netloc for s in skip):

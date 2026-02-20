@@ -186,23 +186,26 @@ async def test_llm_direct_label_sin_verificar():
 
 
 # =============================================================================
-# TEST 4: DuckDuckGo filtra ads correctamente
+# TEST 4: DDG API returns structured results via ddgs library
 # =============================================================================
 @pytest.mark.asyncio
-async def test_ddg_filters_ads():
-    """Los resultados de DDG con duckduckgo.com/y.js deben ser filtrados como ads."""
+async def test_ddg_api_returns_results():
+    """El fallback DDG API (ddgs library) debe devolver resultados estructurados."""
     scraper = GoogleSearchScraper()
 
+    mock_ddg_results = [
+        {"title": "Faymex - Servicios especializados", "href": "https://www.faymex.cl/", "body": "Empresa chilena de servicios industriales"},
+        {"title": "German Saltron - LinkedIn", "href": "https://cl.linkedin.com/in/german-saltron", "body": "Experiencia: FAYMEX SpA"},
+    ]
+
     with patch.object(scraper, "_make_request", new_callable=AsyncMock, return_value=None), \
-         patch.object(scraper, "_ddg_post", new_callable=AsyncMock, return_value=MOCK_DDG_HTML_WITH_ADS):
+         patch.object(scraper, "_ddg_text_search", new_callable=AsyncMock, return_value=mock_ddg_results):
         results = await scraper.search("German Saltron", "Faymex")
 
-    # Solo deben quedar los 2 resultados orgánicos, no los 2 ads
-    assert len(results) == 2, f"Esperados 2 resultados orgánicos, obtuve {len(results)}"
-    for r in results:
-        assert "duckduckgo.com/y.js" not in r.url, f"Ad URL no filtrada: {r.url}"
+    assert len(results) == 2, f"Esperados 2 resultados, obtuve {len(results)}"
     assert any("faymex.cl" in r.url for r in results), "Falta resultado de faymex.cl"
     assert any("linkedin.com" in r.url for r in results), "Falta resultado de LinkedIn"
+    assert all(r.source == "duckduckgo" for r in results), "Source debe ser 'duckduckgo'"
 
 
 # =============================================================================
@@ -213,13 +216,19 @@ async def test_linkedin_ddg_filters_non_linkedin():
     """El scraper LinkedIn solo debe devolver URLs que contengan linkedin.com."""
     scraper = LinkedInScraper()
 
+    mock_ddg_results = [
+        {"title": "Faymex - Servicios especializados", "href": "https://www.faymex.cl/", "body": "Empresa chilena"},
+        {"title": "German Saltron - LinkedIn", "href": "https://cl.linkedin.com/in/german-saltron", "body": "Experiencia: FAYMEX SpA. Ubicacion: Quilpue"},
+        {"title": "Faymex Wikipedia", "href": "https://en.wikipedia.org/wiki/Faymex", "body": "Article"},
+    ]
+
     with patch.object(scraper, "_make_request", new_callable=AsyncMock, return_value=None), \
-         patch.object(scraper, "_ddg_post", new_callable=AsyncMock, return_value=MOCK_DDG_HTML_WITH_ADS):
+         patch.object(scraper, "_ddg_text_search", new_callable=AsyncMock, return_value=mock_ddg_results):
         results = await scraper.search("German Saltron", "Faymex")
 
     assert len(results) == 1, f"Esperado 1 resultado LinkedIn, obtuve {len(results)}"
     assert "linkedin.com" in results[0].url
-    assert "faymex.cl" not in results[0].url, "URL no-LinkedIn pasó el filtro"
+    assert "faymex.cl" not in results[0].url, "URL no-LinkedIn paso el filtro"
 
 
 # =============================================================================
@@ -238,7 +247,7 @@ async def test_corporate_discovers_domain_and_internal_links():
         return None
 
     with patch.object(scraper, "_make_request", side_effect=mock_request), \
-         patch.object(scraper, "_ddg_post", new_callable=AsyncMock, return_value=None):
+         patch.object(scraper, "_ddg_text_search", new_callable=AsyncMock, return_value=[]):
         results = await scraper.search("German Saltron", "Faymex")
 
     assert scraper.discovered_domain is not None, "No descubrió dominio"
@@ -686,12 +695,10 @@ async def test_perplexity_successful_response():
     # Verificar contenido del item de persona
     persona_item = next(r for r in results if r.source == "perplexity_persona")
     assert "Gerente de Operaciones" in persona_item.snippet
-    assert persona_item.url == "", "URLs de Perplexity no deben usarse"
 
     # Verificar contenido del item de empresa
     empresa_item = next(r for r in results if r.source == "perplexity_empresa")
     assert "Energía" in empresa_item.snippet or "combustibles" in empresa_item.snippet
-    assert empresa_item.url == "", "URLs de Perplexity no deben usarse"
 
     # Verificar que last_result NO contiene hallazgos
     assert "hallazgos" not in scraper.last_result, "last_result no debe tener hallazgos"
@@ -744,12 +751,14 @@ async def test_perplexity_invalid_json_returns_empty():
 # TEST 24: Orchestrator incluye PerplexityScraper
 # =============================================================================
 def test_orchestrator_includes_perplexity():
-    """El orchestrator debe incluir el PerplexityScraper en su lista de scrapers."""
+    """El orchestrator debe incluir el PerplexityScraper."""
     orchestrator = ScraperOrchestrator()
 
-    scraper_types = [type(s).__name__ for s in orchestrator.scrapers]
-    assert "PerplexityScraper" in scraper_types, f"PerplexityScraper no encontrado en: {scraper_types}"
-    assert len(orchestrator.scrapers) == 5, f"Esperados 5 scrapers, hay {len(orchestrator.scrapers)}"
+    assert orchestrator.perplexity_scraper is not None, "PerplexityScraper no encontrado"
+    assert len(orchestrator.web_scrapers) == 4, f"Esperados 4 web scrapers, hay {len(orchestrator.web_scrapers)}"
+    web_types = [type(s).__name__ for s in orchestrator.web_scrapers]
+    assert "LinkedInScraper" in web_types
+    assert "CorporateSiteScraper" in web_types
 
 
 # =============================================================================

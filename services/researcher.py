@@ -337,9 +337,9 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
 
         if any(field_filled := [education, location, trayectoria]):
             print(f"[Research] Enriquecido con datos de LinkedIn snippets: "
-                  f"edu={'✓' if education else '✗'} "
-                  f"loc={'✓' if location else '✗'} "
-                  f"tray={'✓' if trayectoria else '✗'}")
+                  f"edu={'Y' if education else 'N'} "
+                  f"loc={'Y' if location else 'N'} "
+                  f"tray={'Y' if trayectoria else 'N'}")
 
     @staticmethod
     def _extract_education(text: str) -> str:

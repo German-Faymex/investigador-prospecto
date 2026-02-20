@@ -87,7 +87,9 @@ async def test_google_news_scraper():
 @pytest.mark.asyncio
 async def test_linkedin_scraper():
     scraper = LinkedInScraper()
-    with patch.object(scraper, "_make_request", new_callable=AsyncMock, return_value=MOCK_LINKEDIN_HTML):
+    # Mock DDG API to return empty (forces fallback to Google)
+    with patch.object(scraper, "_ddg_text_search", new_callable=AsyncMock, return_value=[]), \
+         patch.object(scraper, "_make_request", new_callable=AsyncMock, return_value=MOCK_LINKEDIN_HTML):
         results = await scraper.search("Roberto Garcia", "CODELCO")
 
     assert len(results) == 1
@@ -105,7 +107,7 @@ async def test_corporate_scraper():
         return None
 
     with patch.object(scraper, "_make_request", side_effect=mock_request), \
-         patch.object(scraper, "_ddg_post", new_callable=AsyncMock, return_value=None):
+         patch.object(scraper, "_ddg_text_search", new_callable=AsyncMock, return_value=[]):
         results = await scraper.search("Roberto Garcia", "CODELCO")
 
     assert scraper.discovered_domain is not None
@@ -115,7 +117,8 @@ async def test_corporate_scraper():
 @pytest.mark.asyncio
 async def test_google_search_empty_response():
     scraper = GoogleSearchScraper()
-    with patch.object(scraper, "_make_request", new_callable=AsyncMock, return_value=None):
+    with patch.object(scraper, "_make_request", new_callable=AsyncMock, return_value=None), \
+         patch.object(scraper, "_ddg_text_search", new_callable=AsyncMock, return_value=[]):
         results = await scraper.search("Test", "Test")
 
     assert results == []
@@ -124,7 +127,8 @@ async def test_google_search_empty_response():
 @pytest.mark.asyncio
 async def test_google_search_bad_html():
     scraper = GoogleSearchScraper()
-    with patch.object(scraper, "_make_request", new_callable=AsyncMock, return_value="<html><body>No results</body></html>"):
+    with patch.object(scraper, "_make_request", new_callable=AsyncMock, return_value="<html><body>No results</body></html>"), \
+         patch.object(scraper, "_ddg_text_search", new_callable=AsyncMock, return_value=[]):
         results = await scraper.search("Test", "Test")
 
     assert results == []

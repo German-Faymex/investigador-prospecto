@@ -1,6 +1,4 @@
-"""Scraper de búsqueda general: Google con fallback a DuckDuckGo."""
-from urllib.parse import quote_plus
-
+"""Scraper de búsqueda general: Google con fallback a DuckDuckGo (ddgs API)."""
 from bs4 import BeautifulSoup
 
 from scraper.base import BaseScraper, ScrapedItem
@@ -20,13 +18,10 @@ class GoogleSearchScraper(BaseScraper):
         # Intentar Google primero
         items = await self._search_google(query)
 
-        # Fallback a DuckDuckGo si Google no devuelve resultados
-        # Delay para dar prioridad DDG al LinkedIn scraper (evita rate limiting 202)
+        # Fallback a DDG API (ddgs library, funciona desde datacenter IPs)
         if not items:
-            import asyncio
-            await asyncio.sleep(3)
-            print("[GoogleSearchScraper] Google sin resultados, intentando DuckDuckGo")
-            items = await self._search_duckduckgo(query)
+            print("[GoogleSearchScraper] Google sin resultados, intentando DDG API")
+            items = await self._search_ddg_api(query)
 
         return items
 
@@ -43,12 +38,22 @@ class GoogleSearchScraper(BaseScraper):
 
         return self._parse_google_results(html)
 
-    async def _search_duckduckgo(self, query: str) -> list[ScrapedItem]:
-        """Buscar en DuckDuckGo HTML (más permisivo que Google)."""
-        html = await self._ddg_post(query)
-        if not html:
-            return []
-        return self._parse_ddg_results(html)
+    async def _search_ddg_api(self, query: str) -> list[ScrapedItem]:
+        """Search via ddgs library (API-based, works from datacenter IPs)."""
+        max_results = self.settings.scraper.max_results_per_source
+        results = await self._ddg_text_search(query, max_results=max_results)
+        items = []
+        for r in results:
+            url = r.get("href", "")
+            if not url or not url.startswith("http"):
+                continue
+            items.append(ScrapedItem(
+                url=url,
+                title=r.get("title", ""),
+                snippet=r.get("body", ""),
+                source="duckduckgo",
+            ))
+        return items[:max_results]
 
     def _parse_google_results(self, html: str) -> list[ScrapedItem]:
         soup = BeautifulSoup(html, "html.parser")
@@ -74,34 +79,6 @@ class GoogleSearchScraper(BaseScraper):
                 title=title,
                 snippet=snippet,
                 source="google_search",
-            ))
-
-            if len(items) >= self.settings.scraper.max_results_per_source:
-                break
-
-        return items
-
-    def _parse_ddg_results(self, html: str) -> list[ScrapedItem]:
-        soup = BeautifulSoup(html, "html.parser")
-        items = []
-
-        for title_el in soup.select("a.result__a"):
-            url = title_el.get("href", "")
-            # Filtrar ads de DDG y URLs no válidas
-            if not url or "duckduckgo.com/y.js" in url or not url.startswith("http"):
-                continue
-
-            title = title_el.get_text(strip=True)
-            # Buscar snippet en el mismo contenedor padre
-            parent = title_el.find_parent("div", class_="result")
-            snippet_el = parent.select_one("a.result__snippet") if parent else None
-            snippet = snippet_el.get_text(strip=True) if snippet_el else ""
-
-            items.append(ScrapedItem(
-                url=url,
-                title=title,
-                snippet=snippet,
-                source="duckduckgo",
             ))
 
             if len(items) >= self.settings.scraper.max_results_per_source:

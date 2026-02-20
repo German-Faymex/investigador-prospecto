@@ -32,17 +32,23 @@ class LinkedInScraper(BaseScraper):
 
     async def search(self, name: str, company: str, role: str = "", location: str = "") -> list[ScrapedItem]:
         name_clean = self._strip_accents(name)
+        # Extract first name + first last name for broader matching
+        name_parts = name_clean.split()
+        name_short = " ".join(name_parts[:2]) if len(name_parts) >= 2 else name_clean
 
-        # DDG PRIMERO (funciona desde datacenter IPs), Google después (a menudo bloqueado)
+        # DDG API (ddgs library): funciona desde datacenter IPs (Railway, AWS, etc.)
+        # Google como último fallback (a menudo bloqueado desde datacenter)
+        # IMPORTANT: Use original name (with accents) in some queries for exact match,
+        # and short name (first+last) in others to avoid accented surnames confusing results
         search_attempts = [
-            # 1. DDG con site: (MÁS CONFIABLE desde datacenter)
-            ("ddg", f'{name_clean} {company} site:linkedin.com/in/'),
-            # 2. Google con site: (fallback, a menudo bloqueado)
+            # 1. Original name + company + context words (best match from testing)
+            ("ddg", f'"{name}" "{company}" linkedin' + (f' {role}' if role else '')),
+            # 2. Short name + company + location context
+            ("ddg", f'"{name_short}" {company} linkedin' + (f' {location}' if location else ' chile')),
+            # 3. Clean name with site: (broad)
+            ("ddg", f'"{name_short}" "{company}" site:linkedin.com/in/'),
+            # 4. Google as last resort
             ("google", f'site:linkedin.com/in/ "{name_clean}" "{company}"'),
-            # 3. DDG flexible (sin site:)
-            ("ddg", f'"{name_clean}" "{company}" linkedin'),
-            # 4. DDG ultra flexible
-            ("ddg", f'{name_clean} {company} linkedin perfil'),
         ]
 
         items = []
@@ -50,7 +56,7 @@ class LinkedInScraper(BaseScraper):
             if engine == "google":
                 items = await self._search_google(query)
             else:
-                items = await self._search_duckduckgo(query)
+                items = await self._search_ddg_api(query)
 
             if items:
                 print(f"[LinkedInScraper] Encontrado con: {engine} - {query[:60]}...")
@@ -77,12 +83,23 @@ class LinkedInScraper(BaseScraper):
 
         return self._parse_google_results(html)
 
-    async def _search_duckduckgo(self, query: str) -> list[ScrapedItem]:
-        """Buscar perfiles LinkedIn en DuckDuckGo HTML."""
-        html = await self._ddg_post(query)
-        if not html:
-            return []
-        return self._parse_ddg_results(html)
+    async def _search_ddg_api(self, query: str) -> list[ScrapedItem]:
+        """Search LinkedIn profiles via ddgs library (API-based, works from datacenter IPs)."""
+        results = await self._ddg_text_search(query, max_results=5)
+        items = []
+        for r in results:
+            url = r.get("href", "")
+            if "linkedin.com" not in url:
+                continue
+            items.append(ScrapedItem(
+                url=url,
+                title=r.get("title", ""),
+                snippet=r.get("body", ""),
+                source="linkedin",
+            ))
+            if len(items) >= 3:
+                break
+        return items
 
     def _parse_google_results(self, html: str) -> list[ScrapedItem]:
         soup = BeautifulSoup(html, "html.parser")
@@ -101,51 +118,6 @@ class LinkedInScraper(BaseScraper):
                 continue
 
             title = title_el.get_text(strip=True)
-            snippet = snippet_el.get_text(strip=True) if snippet_el else ""
-
-            items.append(ScrapedItem(
-                url=url,
-                title=title,
-                snippet=snippet,
-                source="linkedin",
-            ))
-
-            if len(items) >= 3:
-                break
-
-        return items
-
-    def _parse_ddg_results(self, html: str) -> list[ScrapedItem]:
-        soup = BeautifulSoup(html, "html.parser")
-        items = []
-
-        # Selector principal de DDG HTML
-        result_links = soup.select("a.result__a")
-        # Fallback: DDG cambia selectores ocasionalmente
-        if not result_links:
-            result_links = soup.select("h2 a[href*='linkedin.com']")
-        if not result_links:
-            result_links = soup.select("a[href*='linkedin.com']")
-
-        for title_el in result_links:
-            url = title_el.get("href", "")
-            if not url or "duckduckgo.com/y.js" in url:
-                continue
-            if "linkedin.com" not in url:
-                continue
-
-            title = title_el.get_text(strip=True)
-            # Buscar snippet en el mismo contenedor padre
-            parent = title_el.find_parent("div", class_="result")
-            if not parent:
-                parent = title_el.find_parent("div")
-            snippet_el = None
-            if parent:
-                snippet_el = (
-                    parent.select_one("a.result__snippet")
-                    or parent.select_one(".result__snippet")
-                    or parent.select_one("span.result__snippet")
-                )
             snippet = snippet_el.get_text(strip=True) if snippet_el else ""
 
             items.append(ScrapedItem(

@@ -89,35 +89,41 @@ class BaseScraper(ABC):
             print(f"[{self.__class__.__name__}] Error HTTP: {e}")
             return None
 
-    async def _ddg_post(self, query: str) -> Optional[str]:
-        """POST a DuckDuckGo HTML con serialización para evitar rate limiting.
+    async def _ddg_text_search(self, query: str, max_results: int = 5) -> list[dict]:
+        """Search DDG using ddgs library (API-based, works from datacenter IPs).
 
-        DDG devuelve 202 cuando recibe muchas requests simultáneas de la misma IP.
-        Usamos un Lock compartido entre TODOS los scrapers para serializar acceso.
+        Returns list of dicts with keys: title, href, body.
+        Uses Lock to serialize calls and avoid rate limiting.
         """
         lock = self._get_ddg_lock()
         async with lock:
-            ddg_url = "https://html.duckduckgo.com/html/"
-            for attempt in range(2):
-                try:
-                    async with httpx.AsyncClient(
-                        timeout=self.settings.scraper.timeout_seconds,
-                        follow_redirects=True,
-                    ) as client:
-                        response = await client.post(
-                            ddg_url,
-                            data={"q": query, "b": ""},
-                            headers=self.headers,
-                        )
-                        if response.status_code == 200:
-                            return response.text
-                        if response.status_code == 202 and attempt == 0:
-                            print(f"[{self.__class__.__name__}] DDG 202, reintentando en 3s")
-                            await asyncio.sleep(3)
-                            continue
-                        print(f"[{self.__class__.__name__}] DDG HTTP {response.status_code}")
-                        return None
-                except Exception as e:
-                    print(f"[{self.__class__.__name__}] DDG error: {e}")
-                    return None
-            return None
+            try:
+                from ddgs import DDGS
+                results = await asyncio.to_thread(
+                    lambda: list(DDGS().text(query, max_results=max_results))
+                )
+                if results:
+                    print(f"[{self.__class__.__name__}] ddgs text: {len(results)} results for '{query[:50]}...'")
+                return results
+            except Exception as e:
+                print(f"[{self.__class__.__name__}] ddgs text error: {e}")
+                return []
+
+    async def _ddg_news_search(self, query: str, max_results: int = 5) -> list[dict]:
+        """Search DDG news using ddgs library (API-based).
+
+        Returns list of dicts with keys: date, title, body, url, source.
+        """
+        lock = self._get_ddg_lock()
+        async with lock:
+            try:
+                from ddgs import DDGS
+                results = await asyncio.to_thread(
+                    lambda: list(DDGS().news(query, max_results=max_results))
+                )
+                if results:
+                    print(f"[{self.__class__.__name__}] ddgs news: {len(results)} results for '{query[:50]}...'")
+                return results
+            except Exception as e:
+                print(f"[{self.__class__.__name__}] ddgs news error: {e}")
+                return []
