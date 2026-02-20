@@ -32,6 +32,10 @@
 
     <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script>
+        // Research can take 30-60s; prevent HTMX from timing out
+        htmx.config.timeout = 120000;
+    </script>
 
     <!-- Quill Editor -->
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">

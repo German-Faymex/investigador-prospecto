@@ -29,6 +29,7 @@
     <form id="research-form"
           hx-post="/api/research"
           hx-target="#research-results"
+          hx-swap="innerHTML show:top"
           hx-indicator="#loading-spinner"
           hx-disabled-elt="button[type=submit]"
           class="p-6">

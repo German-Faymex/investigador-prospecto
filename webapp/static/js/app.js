@@ -292,7 +292,8 @@ document.addEventListener('htmx:responseError', function(event) {
         stopBtn.classList.remove('flex');
     }
     activeXhr = null;
-    showToast('Error de conexion. Intenta nuevamente.', 'error');
+    var status = event.detail.xhr ? event.detail.xhr.status : 'unknown';
+    showToast('Error del servidor (HTTP ' + status + '). Intenta nuevamente.', 'error');
 });
 
 document.addEventListener('htmx:sendError', function() {
@@ -312,5 +313,14 @@ document.addEventListener('htmx:timeout', function() {
         stopBtn.classList.remove('flex');
     }
     activeXhr = null;
-    showToast('La solicitud tardo demasiado. Intenta nuevamente.', 'warning');
+    showToast('La solicitud tardo demasiado (>2 min). Intenta nuevamente.', 'warning');
+});
+
+document.addEventListener('htmx:beforeSwap', function(event) {
+    // If server returned error status, show message and prevent empty swap
+    var xhr = event.detail.xhr;
+    if (xhr && xhr.status >= 400) {
+        event.detail.shouldSwap = false;
+        showToast('Error del servidor (HTTP ' + xhr.status + '). Intenta nuevamente.', 'error');
+    }
 });
