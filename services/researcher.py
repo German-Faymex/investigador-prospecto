@@ -55,8 +55,13 @@ class ResearchService:
                 # Sites that don't provide useful clickable info for the user
                 _noisy_domains = ("zoominfo.com", "rocketreach.co", "theorg.com", "twitchtracker.com", "chiletrabajos.cl")
                 result.raw_sources = []
+                seen_urls = set()
                 for it in items:
                     if not it.url:
+                        continue
+                    # Deduplicate by URL
+                    url_normalized = it.url.rstrip("/").lower()
+                    if url_normalized in seen_urls:
                         continue
                     url_lower = it.url.lower()
                     # Filter out noisy/paywalled sources
@@ -74,6 +79,7 @@ class ResearchService:
                     if it.source in ("duckduckgo_news", "google_news"):
                         if not self._text_mentions_company(item_text, company_lower) and name_lower not in item_text:
                             continue
+                    seen_urls.add(url_normalized)
                     result.raw_sources.append(
                         {"url": it.url, "title": it.title, "source": it.source}
                     )
