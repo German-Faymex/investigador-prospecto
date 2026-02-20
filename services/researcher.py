@@ -49,8 +49,9 @@ class ResearchService:
             items = await self.orchestrator.search_all(name, company, role, location)
 
             if items:
-                # 2. Guardar fuentes raw (filtrar homónimos y fuentes no útiles)
+                # 2. Guardar fuentes raw (filtrar homónimos, fuentes no útiles, noticias irrelevantes)
                 company_lower = company.lower().strip()
+                name_lower = name.lower().strip()
                 # Sites that don't provide useful clickable info for the user
                 _noisy_domains = ("zoominfo.com", "rocketreach.co", "theorg.com", "twitchtracker.com", "chiletrabajos.cl")
                 result.raw_sources = []
@@ -63,10 +64,14 @@ class ResearchService:
                         if company_lower and not self._text_mentions_company(item_text, company_lower):
                             continue
                     # Filter out noisy/paywalled sources from displayed sources
-                    # (they still reach the LLM via verified_facts for cross-referencing)
                     url_lower = it.url.lower()
                     if any(d in url_lower for d in _noisy_domains):
                         continue
+                    # Filter news results: only keep if they mention the company or person
+                    if it.source in ("duckduckgo_news", "google_news"):
+                        item_text = f"{it.title} {it.snippet}".lower()
+                        if not self._text_mentions_company(item_text, company_lower) and name_lower not in item_text:
+                            continue
                     result.raw_sources.append(
                         {"url": it.url, "title": it.title, "source": it.source}
                     )
@@ -225,26 +230,41 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
         ]
         if corporate_domain:
             lines.append(f"- Sitio web corporativo: {corporate_domain}")
+        if role:
+            lines.extend([
+                "",
+                "## ⚠️ INSTRUCCIÓN PRIORITARIA SOBRE CARGO",
+                "",
+                f"El usuario proporcionó el cargo '{role}' como dato conocido. Este es el cargo ACTUAL y CORRECTO.",
+                "- La TRAYECTORIA debe empezar con este cargo: \"Actualmente [cargo proporcionado] en [empresa]...\"",
+                "- Si LinkedIn muestra un cargo diferente (ej: headline desactualizado), el cargo proporcionado PREVALECE.",
+                "- Si ZoomInfo/RocketReach muestra un cargo diferente, IGNÓRALO — usa el proporcionado.",
+                "- En persona.cargo DEBES poner el cargo proporcionado por el usuario.",
+                "",
+            ])
         lines.extend([
             "",
             "## Datos recopilados y verificados",
-            "",
-            "**ADVERTENCIA sobre fuentes**: Los snippets de LinkedIn en buscadores pueden mostrar "
-            "cargos DESACTUALIZADOS (el headline no siempre se actualiza). ZoomInfo/RocketReach también "
-            "pueden estar desactualizados. Si el usuario proporcionó un cargo en 'Cargo conocido', "
-            "dale MÁXIMA prioridad ya que es la fuente más reciente.",
             "",
         ])
 
         for i, fact in enumerate(facts, 1):
             if fact.confidence == "discarded":
                 continue
+            # Skip ZoomInfo/RocketReach facts about cargo when user already provided one
+            is_zoominfo = any(s in url for url in fact.sources for s in ("zoominfo.com", "rocketreach.co", "theorg.com"))
+            if is_zoominfo and role:
+                # If fact mentions a different role title, skip it entirely
+                fact_lower = fact.content.lower()
+                role_lower = role.lower()
+                has_role_keywords = any(kw in fact_lower for kw in ("cargo", "title", "jefe", "gerente", "director", "manager", "head", "chief", "ingeniero", "analista", "coordinador", "supervisor"))
+                if has_role_keywords and role_lower not in fact_lower:
+                    print(f"[Research] Descartando dato ZoomInfo con cargo contradictorio: {fact.content[:80]}...")
+                    continue
             emoji = "✅" if fact.confidence == "verified" else "⚠️"
             sources_str = ", ".join(fact.source_names)
             urls_str = " | ".join(fact.sources[:3])
-            # Flag unreliable sources
-            unreliable = any(s in url for url in fact.sources for s in ("zoominfo.com", "rocketreach.co", "theorg.com"))
-            reliability_note = " ⚠️ FUENTE NO CONFIABLE para cargo personal" if unreliable else ""
+            reliability_note = " ⚠️ FUENTE NO CONFIABLE para cargo personal" if is_zoominfo else ""
             lines.append(f"{emoji} **Dato {i}** [{fact.confidence}] (fuentes: {sources_str}){reliability_note}")
             lines.append(f"   {fact.content}")
             if urls_str:
