@@ -113,6 +113,8 @@ class BaseScraper(ABC):
         """Search DDG news using ddgs library (API-based).
 
         Returns list of dicts with keys: date, title, body, url, source.
+        NOTE: DDG news API works best with English/simple queries.
+        For Spanish queries or complex names, use _ddg_text_search_recent instead.
         """
         lock = self._get_ddg_lock()
         async with lock:
@@ -126,4 +128,24 @@ class BaseScraper(ABC):
                 return results
             except Exception as e:
                 print(f"[{self.__class__.__name__}] ddgs news error: {e}")
+                return []
+
+    async def _ddg_text_search_recent(self, query: str, max_results: int = 5) -> list[dict]:
+        """Search DDG text with time filter for recent results (last month).
+
+        Useful as fallback when DDG news API returns no results.
+        Returns same format as _ddg_text_search: title, href, body.
+        """
+        lock = self._get_ddg_lock()
+        async with lock:
+            try:
+                from ddgs import DDGS
+                results = await asyncio.to_thread(
+                    lambda: list(DDGS().text(query, max_results=max_results, timelimit="m"))
+                )
+                if results:
+                    print(f"[{self.__class__.__name__}] ddgs text recent: {len(results)} results for '{query[:50]}...'")
+                return results
+            except Exception as e:
+                print(f"[{self.__class__.__name__}] ddgs text recent error: {e}")
                 return []
