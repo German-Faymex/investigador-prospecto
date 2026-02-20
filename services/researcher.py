@@ -109,6 +109,14 @@ class ResearchService:
                         # Enriquecer campos vacíos con datos de Perplexity y LinkedIn
                         self._enrich_from_perplexity(result)
                         self._enrich_from_scraped_items(result, items)
+                        # Fallback: si el usuario proporcionó cargo, usarlo cuando LLM no lo llenó
+                        if role:
+                            _empty = ("", "No disponible", "No especificado", "No verificado")
+                            if not result.cargo_descubierto or result.cargo_descubierto in _empty:
+                                result.cargo_descubierto = role
+                            cargo_actual = result.persona.get("cargo", "")
+                            if not cargo_actual or cargo_actual in _empty:
+                                result.persona["cargo"] = role
                         return result
 
             # Fallback: si no hay datos de scraping, investigar directo con LLM
