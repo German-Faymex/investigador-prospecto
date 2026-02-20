@@ -1,5 +1,82 @@
 # Changelog
 
+## [1.3.0] - 2026-02-20
+
+### Calidad de datos: anti-homónimos, fuentes limpias, cargo confiable
+
+**1. Migración a DDG API (ddgs library)**
+- Reemplazado HTML scraping de DDG por `ddgs` library (API interna)
+- Funciona desde Railway (datacenter IPs) sin bloqueos
+- `asyncio.Lock` serializa llamadas DDG para evitar rate limiting
+- Archivos: `scraper/base.py`, `scraper/google_search.py`, `scraper/google_news.py`, `scraper/linkedin.py`
+
+**2. Fix noticias en email + visibilidad de fuentes**
+- Noticias de empresa ahora aparecen como hook en el cuerpo del email SMTYKM
+- Todas las fuentes scrapeadas son visibles en la UI
+- Archivos: `services/email_generator.py`, `webapp/templates/partials/research_result.html`
+
+**3. Fix color score-hot**
+- El gradiente de score >= 80 usaba rojo (#D82A34) que parecía error
+- Cambiado a naranja-ámbar (#ea580c → #f59e0b) para indicar "oportunidad caliente"
+- Archivos: `webapp/static/css/app.css`
+
+**4. Sistema anti-homónimos (multi-capa)**
+- **Capa 1 — Prompt LLM**: Regla #8 en `research_analyzer.md` obliga al LLM a filtrar datos de personas homónimas en otras empresas
+- **Capa 2 — LinkedIn scraper**: `_search_ddg_api()` prioriza resultados DDG que mencionan la empresa del prospecto (máx 3 matching vs 2 non-matching)
+- **Capa 3 — Enriquecimiento**: `_enrich_from_scraped_items()` solo usa snippets de LinkedIn que mencionan la empresa correcta
+- **Capa 4 — Fuentes mostradas**: `raw_sources` filtra TODOS los resultados de búsqueda (DDG, Google, LinkedIn) que no mencionan la empresa en título/snippet
+- **Capa 5 — Perplexity**: Regla anti-homónimo en system prompt de Perplexity
+- Nuevo método `_text_mentions_company()` para matching flexible de nombres de empresa
+- Archivos: `services/researcher.py`, `scraper/linkedin.py`, `scraper/perplexity.py`, `prompts/research_analyzer.md`
+
+**5. Filtrado de fuentes ruidosas y deduplicación**
+- Filtro de dominios ruidosos: ZoomInfo, RocketReach, TheOrg, TwitchTracker, ChileTrabajos se excluyen de fuentes mostradas (siguen llegando al LLM para cruce)
+- Filtro de noticias irrelevantes: solo se muestran noticias que mencionan la empresa o persona
+- Deduplicación de URLs: `seen_urls` set previene duplicados en fuentes
+- Archivos: `services/researcher.py`
+
+**6. Fuentes unificadas en UI**
+- Reemplazadas las secciones separadas de fuentes (persona/empresa) por una sola sección "fuentes consultadas" debajo de los resultados
+- Previene secciones de fuentes vacías cuando DDG rate limiting reduce resultados de un tipo específico
+- Archivos: `webapp/templates/partials/research_result.html`
+
+**7. Prioridad del cargo proporcionado por el usuario**
+- Sección `⚠️ INSTRUCCIÓN PRIORITARIA SOBRE CARGO` inyectada en contexto del LLM cuando el usuario proporciona cargo
+- Datos de ZoomInfo/RocketReach con cargo contradictorio se filtran antes de llegar al LLM
+- Fallback: si el LLM devuelve "No disponible" para cargo, se usa el cargo del formulario
+- Archivos: `services/researcher.py`
+
+**8. Jerarquía de confiabilidad de fuentes**
+- Regla 5b en prompt: LinkedIn > Perplexity > Sitio web > ZoomInfo (variable)
+- Regla de cargo: si LinkedIn y ZoomInfo difieren, evaluar cuál es más reciente; cargo del usuario prevalece
+- Advertencia en contexto LLM sobre fuentes desactualizadas
+- Archivos: `prompts/research_analyzer.md`, `services/researcher.py`
+
+**9. Trayectoria en orden cronológico inverso**
+- Regla 5c en prompt: trayectoria siempre empieza con cargo ACTUAL (más reciente primero)
+- Formato: "Actualmente [cargo] en [empresa]. Anteriormente [cargo anterior]..."
+- Archivos: `prompts/research_analyzer.md`
+
+**10. Intereses solo de datos reales**
+- Regla 5d en prompt: intereses solo de datos explícitos (ej: sección de LinkedIn)
+- Prohibido inferir intereses a partir de cargos o industria
+- Archivos: `prompts/research_analyzer.md`
+
+**11. Fix extracción de educación**
+- Regex limitado a 80-100 chars para evitar capturar fragmentos de snippets
+- Skip de fragmentos "ucation:" de meta tags de LinkedIn
+- Skip de palabras de negocio ("nuestro", "servicios", "empresa")
+- Patrones agregados: IESA, DUOC
+- Archivos: `services/researcher.py`
+
+**12. Fix timeout HTMX**
+- `htmx.config.timeout = 120000` (2 min) para investigaciones largas (~50s)
+- Handler `htmx:beforeSwap` para prevenir page resets en errores
+- Mensajes de error mejorados con códigos HTTP
+- Archivos: `webapp/templates/base.html`, `webapp/templates/index.html`, `webapp/static/js/app.js`
+
+---
+
 ## [1.2.0] - 2026-02-19
 
 ### Integración Perplexity API + correcciones anti-alucinación
