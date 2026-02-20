@@ -75,7 +75,7 @@
 
 /* --- Score Gradient Backgrounds --- */
 .score-hot {
-    background: linear-gradient(135deg, #D82A34 0%, #f97316 100%);
+    background: linear-gradient(135deg, #ea580c 0%, #f59e0b 100%);
 }
 .score-good {
     background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
