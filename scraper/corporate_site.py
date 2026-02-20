@@ -33,29 +33,43 @@ class CorporateSiteScraper(BaseScraper):
         return items[:self.settings.scraper.max_results_per_source]
 
     async def _guess_company_domain(self, company: str) -> str | None:
-        """Intentar adivinar el dominio probando TLDs comunes."""
+        """Intentar adivinar el dominio probando TLDs comunes.
+
+        Valida que el sitio encontrado sea realmente de la empresa buscada,
+        no un homónimo (ej: angloamerican.cl es un colegio, no la minera).
+        """
         clean = re.sub(r'\b(s\.?a\.?|ltda\.?|spa|s\.?r\.?l\.?|inc\.?|corp\.?|llc)\b', '', company, flags=re.IGNORECASE)
         clean = re.sub(r'[^a-zA-Z0-9]', '', clean).lower().strip()
 
         if not clean:
             return None
 
-        # Probar en paralelo para velocidad
+        # Probar .com primero (más confiable para empresas internacionales),
+        # luego .cl para empresas chilenas
         candidates = [
-            f"https://www.{clean}.cl",
-            f"https://{clean}.cl",
             f"https://www.{clean}.com",
             f"https://{clean}.com",
+            f"https://www.{clean}.cl",
+            f"https://{clean}.cl",
         ]
+
+        company_lower = company.lower()
 
         async def try_url(url):
             try:
                 html = await self._make_request(url)
-                if html and len(html) > 500:
-                    return url
+                if not html or len(html) < 500:
+                    return None
+
+                # Validar que el sitio es de la empresa correcta
+                if not self._validate_domain(html, company_lower):
+                    parsed = urlparse(url)
+                    print(f"[CorporateSiteScraper] {parsed.netloc} descartado (no coincide con '{company}')")
+                    return None
+
+                return url
             except Exception:
-                pass
-            return None
+                return None
 
         results = await asyncio.gather(*[try_url(u) for u in candidates])
         for result in results:
@@ -64,6 +78,43 @@ class CorporateSiteScraper(BaseScraper):
                 return f"{parsed.scheme}://{parsed.netloc}"
 
         return None
+
+    @staticmethod
+    def _validate_domain(html: str, company_lower: str) -> bool:
+        """Validar que el HTML pertenece a la empresa buscada.
+
+        Descarta sitios homónimos (colegios, restaurantes, etc.) verificando
+        que el contenido sea relevante para una empresa B2B/industrial.
+        """
+        html_lower = html[:5000].lower()
+
+        # Palabras que indican que NO es la empresa buscada
+        disqualifiers = [
+            "colegio", "escuela", "liceo", "jardín infantil",
+            "restaurante", "hotel", "tienda online", "e-commerce",
+            "iglesia", "parroquia", "fundación benéfica",
+        ]
+
+        # Solo descalificar si el nombre de la empresa NO aparece en contexto empresarial
+        has_company_name = company_lower in html_lower
+
+        if has_company_name:
+            # Verificar si el contexto es educacional/irrelevante
+            for disq in disqualifiers:
+                if disq in html_lower:
+                    # Encontró un descalificador - verificar si hay señales empresariales
+                    business_signals = [
+                        "mining", "minería", "minera", "industria",
+                        "energía", "energy", "construcción", "ingeniería",
+                        "manufactura", "servicios profesionales",
+                        "corporate", "investors", "sustainability",
+                        "annual report", "reporte anual", "operaciones",
+                    ]
+                    if any(sig in html_lower for sig in business_signals):
+                        return True  # Tiene señales empresariales a pesar del descalificador
+                    return False  # Probablemente es un homónimo
+
+        return True  # Sin descalificadores, aceptar
 
     async def _find_domain_via_ddg(self, company: str) -> str | None:
         """Buscar dominio vía DuckDuckGo."""
@@ -181,7 +232,6 @@ class CorporateSiteScraper(BaseScraper):
                 if text and len(text) > 2 and len(text) < 50:
                     nav_items.append(text)
         if nav_items:
-            # Deduplicar preservando orden
             seen_nav = set()
             unique_nav = []
             for item in nav_items:

@@ -1,4 +1,4 @@
-"""Scraper de LinkedIn vía Google/DuckDuckGo."""
+"""Scraper de LinkedIn vía DuckDuckGo/Google."""
 import json
 import re
 import unicodedata
@@ -9,7 +9,11 @@ from scraper.base import BaseScraper, ScrapedItem
 
 
 class LinkedInScraper(BaseScraper):
-    """Busca perfiles de LinkedIn del prospecto a través de buscadores."""
+    """Busca perfiles de LinkedIn del prospecto.
+
+    Prioriza DuckDuckGo sobre Google porque Google bloquea IPs de datacenter
+    (Railway, AWS, etc.) mientras DDG es más permisivo.
+    """
 
     GOOGLE_URL = "https://www.google.com/search"
 
@@ -29,19 +33,15 @@ class LinkedInScraper(BaseScraper):
     async def search(self, name: str, company: str, role: str = "", location: str = "") -> list[ScrapedItem]:
         name_clean = self._strip_accents(name)
 
-        # Cascada de búsquedas de más específica a más flexible
+        # DDG PRIMERO (funciona desde datacenter IPs), Google después (a menudo bloqueado)
         search_attempts = [
-            # 1. Google exacto
-            ("google", f'site:linkedin.com/in/ "{name}" "{company}"'),
-            # 2. Google sin acentos
-            ("google", f'site:linkedin.com/in/ "{name_clean}" "{company}"'),
-            # 3. Google más flexible (sin quotes en company)
-            ("google", f'site:linkedin.com "{name_clean}" {company}'),
-            # 4. DDG con site:
+            # 1. DDG con site: (MÁS CONFIABLE desde datacenter)
             ("ddg", f'{name_clean} {company} site:linkedin.com/in/'),
-            # 5. DDG sin site: restriction
+            # 2. Google con site: (fallback, a menudo bloqueado)
+            ("google", f'site:linkedin.com/in/ "{name_clean}" "{company}"'),
+            # 3. DDG flexible (sin site:)
             ("ddg", f'"{name_clean}" "{company}" linkedin'),
-            # 6. DDG ultra flexible
+            # 4. DDG ultra flexible
             ("ddg", f'{name_clean} {company} linkedin perfil'),
         ]
 
@@ -163,7 +163,6 @@ class LinkedInScraper(BaseScraper):
     @staticmethod
     def _name_to_slugs(name: str) -> list[str]:
         """Convertir nombre a posibles slugs de LinkedIn URL."""
-        # Remover acentos: "Saltrón" → "Saltron"
         normalized = unicodedata.normalize("NFKD", name)
         normalized = "".join(c for c in normalized if not unicodedata.combining(c))
         normalized = normalized.lower().strip()
@@ -173,21 +172,18 @@ class LinkedInScraper(BaseScraper):
             return []
 
         slugs = []
-        # nombre-apellido1-apellido2 (full)
         slugs.append("-".join(parts))
-        # nombre-apellido1 (sin segundo apellido)
         if len(parts) >= 3:
             slugs.append(f"{parts[0]}-{parts[1]}")
-        # nombre-apellido2 (a veces solo usan un apellido distinto)
         if len(parts) >= 3:
             slugs.append(f"{parts[0]}-{parts[2]}")
-        # Variantes con sufijo numérico (LinkedIn agrega números para duplicados)
+        # Variantes con sufijo numérico
         base_slugs = list(slugs)
         for slug in base_slugs:
             for suffix in ["1", "2", "a", "b"]:
                 slugs.append(f"{slug}-{suffix}")
 
-        return list(dict.fromkeys(slugs))  # Dedup preservando orden
+        return list(dict.fromkeys(slugs))
 
     async def _try_direct_profile(self, name: str) -> list[ScrapedItem]:
         """Último recurso: construir URLs de LinkedIn del nombre y hacer fetch directo."""
@@ -196,7 +192,7 @@ class LinkedInScraper(BaseScraper):
             return []
 
         authwall_count = 0
-        for slug in slugs[:6]:  # Más intentos
+        for slug in slugs[:6]:
             for domain in ["www.linkedin.com", "cl.linkedin.com"]:
                 url = f"https://{domain}/in/{slug}"
                 try:
@@ -204,21 +200,19 @@ class LinkedInScraper(BaseScraper):
                     if not html or len(html) < 500:
                         continue
 
-                    # Detectar authwall
                     if "authwall" in html.lower() or "sign-in" in html[:2000].lower():
                         authwall_count += 1
                         print(f"[LinkedInScraper] Authwall en perfil directo: {url}")
                         if authwall_count >= 2:
-                            print("[LinkedInScraper] Múltiples authwalls, abortando")
+                            print("[LinkedInScraper] Multiples authwalls, abortando")
                             return []
-                        continue  # Intentar siguiente slug en vez de abortar
+                        continue
 
                     soup = BeautifulSoup(html, "html.parser")
 
                     title_tag = soup.find("title")
                     title = title_tag.get_text(strip=True) if title_tag else ""
 
-                    # Extraer snippet de meta tags
                     snippet_parts = []
                     meta_desc = soup.find("meta", {"name": "description"})
                     if meta_desc and meta_desc.get("content"):
@@ -244,7 +238,7 @@ class LinkedInScraper(BaseScraper):
         return []
 
     async def _enrich_with_profile_page(self, items: list[ScrapedItem]) -> list[ScrapedItem]:
-        """Intentar fetch de perfil LinkedIn público para datos más ricos. Fallback silencioso si falla."""
+        """Intentar fetch de perfil LinkedIn público para datos más ricos."""
         for item in items:
             if "/in/" not in item.url:
                 continue
@@ -253,10 +247,9 @@ class LinkedInScraper(BaseScraper):
                 if not html or len(html) < 500:
                     continue
 
-                # Detectar authwall
                 if "authwall" in html.lower() or "sign-in" in html[:2000].lower():
-                    print("[LinkedInScraper] Authwall detectada, usando datos de búsqueda")
-                    break  # No intentar más perfiles
+                    print("[LinkedInScraper] Authwall detectada, usando datos de busqueda")
+                    break
 
                 soup = BeautifulSoup(html, "html.parser")
                 enriched_parts = []
@@ -272,7 +265,6 @@ class LinkedInScraper(BaseScraper):
                                 ld_parts.append(ld_data["name"])
                             if ld_data.get("jobTitle"):
                                 ld_parts.append(ld_data["jobTitle"])
-                            # worksFor puede ser dict o lista
                             works_for = ld_data.get("worksFor")
                             if isinstance(works_for, dict) and works_for.get("name"):
                                 ld_parts.append(works_for["name"])
@@ -286,19 +278,18 @@ class LinkedInScraper(BaseScraper):
                                     loc = addr.get("addressLocality", "")
                                     region = addr.get("addressRegion", "")
                                     if loc or region:
-                                        ld_parts.append(f"Ubicación: {loc}, {region}".strip(", "))
-                            # Educación
+                                        ld_parts.append(f"Ubicacion: {loc}, {region}".strip(", "))
                             alumni = ld_data.get("alumniOf")
                             if isinstance(alumni, list):
                                 for school in alumni[:2]:
                                     if isinstance(school, dict) and school.get("name"):
-                                        ld_parts.append(f"Educación: {school['name']}")
+                                        ld_parts.append(f"Educacion: {school['name']}")
                         if ld_parts:
                             enriched_parts.append(" | ".join(ld_parts))
                     except (json.JSONDecodeError, TypeError):
                         pass
 
-                # 2. Meta description (fallback)
+                # 2. Meta description
                 meta_desc = soup.find("meta", {"name": "description"})
                 if meta_desc and meta_desc.get("content"):
                     enriched_parts.append(meta_desc["content"])
@@ -308,13 +299,11 @@ class LinkedInScraper(BaseScraper):
                 if og_desc and og_desc.get("content"):
                     enriched_parts.append(og_desc["content"])
 
-                # Enriquecer snippet si hay datos nuevos
                 if enriched_parts:
                     combined = " | ".join(enriched_parts)
                     if len(combined) > len(item.snippet):
                         item.snippet = combined
 
-                # Enriquecer title
                 title_tag = soup.find("title")
                 if title_tag and len(title_tag.get_text(strip=True)) > len(item.title):
                     item.title = title_tag.get_text(strip=True)

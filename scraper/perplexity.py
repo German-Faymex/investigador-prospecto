@@ -10,12 +10,15 @@ from scraper.base import BaseScraper, ScrapedItem
 class PerplexityScraper(BaseScraper):
     """Busca información sobre prospectos usando Perplexity sonar-pro.
 
-    IMPORTANTE: Perplexity tiende a alucinar noticias, URLs y datos sobre
-    personas poco conocidas. Por eso:
-    - Solo generamos ScrapedItems para persona y empresa (datos estructurados)
-    - NO generamos items de hallazgos/noticias (demasiado propensos a ser falsos)
-    - Las URLs de Perplexity NO se usan (frecuentemente son fabricadas/404)
-    - Los datos de persona/empresa se usan para enriquecimiento post-LLM
+    Perplexity es la fuente MÁS CONFIABLE porque:
+    - Usa API (no scraping) → no se bloquea por datacenter IPs
+    - Tiene acceso web real → busca LinkedIn, noticias, etc.
+    - Devuelve `citations` con URLs reales verificables
+
+    Precauciones anti-alucinación:
+    - Las URLs se toman de `citations` del API response (NO del contenido)
+    - Datos de persona solo se usan para enriquecimiento
+    - Temperatura 0.1 (muy conservadora)
     """
 
     API_URL = "https://api.perplexity.ai/chat/completions"
@@ -23,12 +26,15 @@ class PerplexityScraper(BaseScraper):
 
     def __init__(self):
         super().__init__()
-        self.last_result: dict | None = None  # Datos estructurados de la última búsqueda
+        self.last_result: dict | None = None
+        self.citations: list[str] = []  # URLs reales de la respuesta
 
     async def search(self, name: str, company: str, role: str = "", location: str = "") -> list[ScrapedItem]:
         self.last_result = None
+        self.citations = []
         api_key = self.settings.perplexity_api_key
         if not api_key:
+            print("[PerplexityScraper] WARN: PERPLEXITY_API_KEY no configurada - scraper deshabilitado")
             return []
 
         today = datetime.now()
@@ -45,9 +51,7 @@ class PerplexityScraper(BaseScraper):
             "4. Si no encuentras información sobre la PERSONA, devuelve persona con campos vacíos.\n"
             "5. CUIDADO con empresas homónimas: verifica que la empresa encontrada sea la CORRECTA.\n"
             "   - Verifica país, industria y contexto. Si hay ambigüedad, indica cuál empresa encontraste.\n"
-            "6. El campo 'hallazgos' SOLO debe contener noticias que REALMENTE existan con URLs REALES.\n"
-            "   Si no encuentras noticias reales, devuelve 'hallazgos': []\n"
-            "7. Es MIL VECES mejor devolver campos vacíos que inventar datos falsos.\n\n"
+            "6. Es MIL VECES mejor devolver campos vacíos que inventar datos falsos.\n\n"
             f"FECHA ACTUAL: {current_date}.\n"
             f"Solo información de los últimos 6 meses (desde {date_limit}).\n\n"
             "Responde en JSON con esta estructura:\n"
@@ -63,8 +67,12 @@ class PerplexityScraper(BaseScraper):
             '    "ubicacion": "", "sitio_web": "",\n'
             '    "desafios_sector": [], "competidores": [], "presencia": ""\n'
             "  },\n"
-            '  "hallazgos": []\n'
-            "}"
+            '  "hallazgos": [\n'
+            '    {"titulo": "Título de la noticia/evento", "resumen": "Breve descripción", "fecha": "Fecha aproximada"}\n'
+            "  ]\n"
+            "}\n\n"
+            "NOTA SOBRE HALLAZGOS: Solo incluye noticias/eventos que REALMENTE hayas encontrado "
+            "en tu búsqueda web. Las URLs de las fuentes se extraerán automáticamente."
         )
 
         location_part = f" en {location}" if location else ""
@@ -76,9 +84,10 @@ class PerplexityScraper(BaseScraper):
             f"educación universitaria, ubicación geográfica (ciudad/país)\n"
             f"2. Si no encuentras LinkedIn, busca cualquier perfil público con su trayectoria "
             f"profesional, formación académica y ubicación\n"
-            f"3. Información de {company}: industria, productos/servicios, tamaño (empleados), sitio web, "
-            f"descripción del negocio, operaciones principales, competidores, presencia geográfica, "
-            f"desafíos del sector\n\n"
+            f"3. Información de {company}: industria, productos/servicios, tamaño (empleados), "
+            f"sitio web, descripción del negocio, competidores, presencia geográfica\n"
+            f"4. Noticias recientes de {company} en los últimos 6 meses: nuevos proyectos, "
+            f"contratos, inversiones, cambios ejecutivos, expansiones, resultados financieros\n\n"
             f"CAMPOS PRIORITARIOS para la persona:\n"
             f"- educacion: nombre de universidad/institución y título/carrera obtenida\n"
             f"- ubicacion: ciudad y país donde trabaja o reside\n"
@@ -92,7 +101,7 @@ class PerplexityScraper(BaseScraper):
         )
 
         try:
-            async with httpx.AsyncClient(timeout=25) as client:
+            async with httpx.AsyncClient(timeout=28) as client:
                 response = await client.post(
                     self.API_URL,
                     headers={
@@ -112,21 +121,29 @@ class PerplexityScraper(BaseScraper):
                 response.raise_for_status()
 
             data = response.json()
+
+            # Extraer citations (URLs reales de la búsqueda)
+            self.citations = data.get("citations", [])
+            if self.citations:
+                print(f"[PerplexityScraper] {len(self.citations)} citations reales obtenidas")
+
             content = data["choices"][0]["message"]["content"]
             items = self._parse_response(content, name, company)
+            print(f"[PerplexityScraper] OK: {len(items)} items generados")
             return items
 
+        except httpx.TimeoutException:
+            print("[PerplexityScraper] WARN: Timeout (28s) - Perplexity demoro demasiado")
+            return []
+        except httpx.HTTPStatusError as e:
+            print(f"[PerplexityScraper] WARN: HTTP {e.response.status_code}: {e.response.text[:200]}")
+            return []
         except Exception as e:
-            print(f"[PerplexityScraper] Error: {e}")
+            print(f"[PerplexityScraper] WARN: Error: {e}")
             return []
 
     def _parse_response(self, content: str, name: str, company: str) -> list[ScrapedItem]:
-        """Parsea la respuesta JSON de Perplexity en ScrapedItems.
-
-        Solo genera items para persona y empresa. Los hallazgos/noticias
-        de Perplexity se IGNORAN porque son muy propensos a alucinación
-        (URLs inventadas, eventos falsos, confusión de empresas homónimas).
-        """
+        """Parsea la respuesta JSON de Perplexity en ScrapedItems."""
         try:
             clean = content
             if "```json" in clean:
@@ -135,11 +152,20 @@ class PerplexityScraper(BaseScraper):
                 clean = clean.split("```")[1].split("```")[0]
 
             data = json.loads(clean.strip())
-        except (json.JSONDecodeError, IndexError):
-            return []
+        except (json.JSONDecodeError, IndexError) as e:
+            print(f"[PerplexityScraper] Error parseando JSON: {e}")
+            # Intentar extraer JSON con regex como fallback
+            import re
+            match = re.search(r"\{.*\}", content, re.DOTALL)
+            if match:
+                try:
+                    data = json.loads(match.group(0))
+                except json.JSONDecodeError:
+                    return []
+            else:
+                return []
 
         # Guardar datos estructurados para enriquecimiento directo
-        # (pero sin hallazgos — son poco confiables)
         safe_data = {
             "persona": data.get("persona", {}),
             "empresa": data.get("empresa", {}),
@@ -148,7 +174,7 @@ class PerplexityScraper(BaseScraper):
 
         items = []
 
-        # Item de persona — sin URL (las URLs de Perplexity suelen ser fabricadas)
+        # Item de persona
         persona = data.get("persona", {})
         if persona:
             parts = []
@@ -168,14 +194,21 @@ class PerplexityScraper(BaseScraper):
                     parts.append(f"Logros: {'; '.join(logros[:3])}")
 
             if parts:
+                # Usar primera citation de LinkedIn si existe
+                linkedin_url = ""
+                for cite in self.citations:
+                    if "linkedin.com" in cite:
+                        linkedin_url = cite
+                        break
+
                 items.append(ScrapedItem(
-                    url="",  # No usar URLs de Perplexity — frecuentemente fabricadas
+                    url=linkedin_url,  # URL real de LinkedIn si Perplexity la encontró
                     title=f"{persona.get('nombre_completo', name)} - Perfil profesional",
                     snippet=". ".join(parts),
                     source="perplexity_persona",
                 ))
 
-        # Item de empresa — sin URL (usar dominio del corporate scraper en su lugar)
+        # Item de empresa
         empresa = data.get("empresa", {})
         if empresa:
             parts = []
@@ -197,15 +230,53 @@ class PerplexityScraper(BaseScraper):
                 parts.append(f"Desafíos: {', '.join(empresa['desafios_sector'][:3])}")
 
             if parts:
+                # Usar citation del sitio web corporativo si existe
+                corp_url = empresa.get("sitio_web", "")
+                if not corp_url:
+                    for cite in self.citations:
+                        if company.lower().replace(" ", "") in cite.lower().replace(" ", ""):
+                            corp_url = cite
+                            break
+
                 items.append(ScrapedItem(
-                    url="",  # No usar URLs de Perplexity
+                    url=corp_url,
                     title=f"{empresa.get('nombre', company)} - Información corporativa",
                     snippet=". ".join(parts),
                     source="perplexity_empresa",
                 ))
 
-        # NOTA: NO creamos items de hallazgos/noticias de Perplexity.
-        # Son la fuente principal de alucinación (URLs inventadas,
-        # noticias falsas, confusión con empresas homónimas).
+        # Items de hallazgos/noticias con citations REALES
+        hallazgos = data.get("hallazgos", [])
+        if hallazgos and self.citations:
+            # Filtrar citations que NO son LinkedIn ni la empresa misma
+            news_citations = [
+                c for c in self.citations
+                if "linkedin.com" not in c
+                and not c.endswith((".cl/", ".com/"))  # Skip homepages
+            ]
+
+            for i, h in enumerate(hallazgos[:5]):
+                titulo = h.get("titulo", "") if isinstance(h, dict) else str(h)
+                resumen = h.get("resumen", "") if isinstance(h, dict) else ""
+                fecha = h.get("fecha", "") if isinstance(h, dict) else ""
+
+                if not titulo:
+                    continue
+
+                snippet_parts = [titulo]
+                if resumen:
+                    snippet_parts.append(resumen)
+                if fecha:
+                    snippet_parts.append(f"({fecha})")
+
+                # Asignar citation real si hay disponibles
+                url = news_citations[i] if i < len(news_citations) else ""
+
+                items.append(ScrapedItem(
+                    url=url,
+                    title=titulo,
+                    snippet=". ".join(snippet_parts),
+                    source="perplexity_news",
+                ))
 
         return items

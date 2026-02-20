@@ -16,7 +16,10 @@ class GoogleNewsScraper(BaseScraper):
         items = await self._search_google_news(query)
 
         # Fallback a DuckDuckGo si Google falla
+        # Delay para dar prioridad DDG al LinkedIn scraper (evita rate limiting 202)
         if not items:
+            import asyncio
+            await asyncio.sleep(4)
             print("[GoogleNewsScraper] Google News sin resultados, intentando DuckDuckGo")
             items = await self._search_duckduckgo_news(query)
 
