@@ -218,7 +218,15 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
         ]
         if corporate_domain:
             lines.append(f"- Sitio web corporativo: {corporate_domain}")
-        lines.extend(["", "## Datos recopilados y verificados", ""])
+        lines.extend([
+            "",
+            "## Datos recopilados y verificados",
+            "",
+            "**ADVERTENCIA sobre fuentes**: Los datos de ZoomInfo y RocketReach frecuentemente tienen "
+            "cargos DESACTUALIZADOS o INCORRECTOS, especialmente para empresas pequeñas/medianas. "
+            "Si LinkedIn muestra un cargo diferente al de ZoomInfo, SIEMPRE preferir LinkedIn.",
+            "",
+        ])
 
         for i, fact in enumerate(facts, 1):
             if fact.confidence == "discarded":
@@ -226,7 +234,10 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
             emoji = "✅" if fact.confidence == "verified" else "⚠️"
             sources_str = ", ".join(fact.source_names)
             urls_str = " | ".join(fact.sources[:3])
-            lines.append(f"{emoji} **Dato {i}** [{fact.confidence}] (fuentes: {sources_str})")
+            # Flag unreliable sources
+            unreliable = any(s in url for url in fact.sources for s in ("zoominfo.com", "rocketreach.co", "theorg.com"))
+            reliability_note = " ⚠️ FUENTE NO CONFIABLE para cargo personal" if unreliable else ""
+            lines.append(f"{emoji} **Dato {i}** [{fact.confidence}] (fuentes: {sources_str}){reliability_note}")
             lines.append(f"   {fact.content}")
             if urls_str:
                 lines.append(f"   URLs: {urls_str}")

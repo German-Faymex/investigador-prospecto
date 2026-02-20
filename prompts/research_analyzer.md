@@ -16,7 +16,7 @@ Responde ÚNICAMENTE con un JSON válido (sin markdown, sin texto adicional):
 {
   "persona": {
     "nombre": "Nombre completo",
-    "cargo": "Cargo actual (SOLO si aparece en los datos)",
+    "cargo": "Cargo ACTUAL según LinkedIn (preferir sobre ZoomInfo/RocketReach)",
     "empresa": "Empresa actual",
     "linkedin": "URL de LinkedIn si disponible en los datos",
     "trayectoria": "Resumen de trayectoria SOLO con datos de las fuentes proporcionadas",
@@ -93,6 +93,23 @@ El `hallazgo_tipo` debe ser el MEJOR tipo encontrado entre todos los hallazgos.
 3. Los datos "verified" pesan más que los "partial"
 4. Si hay contradicciones entre fuentes, menciónalo en el hallazgo
 5. El score final debe reflejar la calidad y frescura de la información encontrada
+5b. **Confiabilidad de fuentes por tipo**:
+   - **LinkedIn** (perfil directo): MÁS confiable para cargo actual, trayectoria, educación, ubicación
+   - **Perplexity**: Confiable para datos generales de persona y empresa
+   - **Sitio web corporativo**: Confiable para datos de empresa
+   - **ZoomInfo, RocketReach, TheOrg**: BAJA confiabilidad para cargo de personas en empresas pequeñas/medianas. Estos sitios frecuentemente muestran cargos DESACTUALIZADOS o INCORRECTOS. Si LinkedIn dice un cargo y ZoomInfo dice otro, SIEMPRE preferir LinkedIn.
+   - **Regla**: Si un dato SOLO aparece en ZoomInfo/RocketReach y NO está en LinkedIn ni Perplexity, márcalo como "partial" y NO lo uses como cargo principal.
+5c. **Trayectoria - ORDEN CRONOLÓGICO INVERSO (más reciente primero)**:
+   - La trayectoria SIEMPRE debe empezar con el cargo ACTUAL (el más reciente)
+   - Formato: "Actualmente [cargo actual] en [empresa]. Anteriormente [cargo anterior] en [empresa anterior], [otro cargo] en [otra empresa]."
+   - El headline de LinkedIn suele mostrar el cargo actual — úsalo como referencia principal
+   - NO pongas el cargo más viejo primero
+5d. **Intereses - SOLO datos reales**:
+   - El campo "intereses" SOLO debe contener intereses que aparezcan EXPLÍCITAMENTE en los datos (ej: sección de intereses de LinkedIn, publicaciones, etc.)
+   - NUNCA inferir intereses a partir de los cargos o la industria
+   - Si no hay datos explícitos de intereses en las fuentes, pon "No disponible"
+   - Ejemplo MALO: Si el cargo es "Gerente de Mantenimiento", NO pongas "mantenimiento industrial, gestión de equipos" como intereses
+   - Ejemplo BUENO: Si LinkedIn muestra que sigue a "Lean Manufacturing" y "Six Sigma", pon eso
 6. **Relevancia geográfica (IMPORTANTE para empresas grandes)**:
    - Si se proporciona ubicación del prospecto, los hallazgos de ESA región o zonas cercanas son los más relevantes.
    - Para empresas grandes con múltiples operaciones (ej: CODELCO, Anglo American, Enel, BHP), las noticias de OTRAS regiones NO son relevantes para el prospecto. Ejemplo: si el prospecto está en Antofagasta, una noticia de la misma empresa en Rancagua NO le aplica.
