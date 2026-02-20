@@ -182,8 +182,8 @@
                 <summary class="px-5 py-3 text-gray-400 cursor-pointer hover:text-gray-600 font-medium">
                     &#128100; {{ persona_sources | length }} fuentes
                 </summary>
-                <div class="px-5 pb-3 space-y-1.5">
-                    {% for src in persona_sources[:5] %}
+                <div class="px-5 pb-3 space-y-1.5 max-h-48 overflow-y-auto">
+                    {% for src in persona_sources %}
                     <div class="flex items-start gap-2 text-sm min-w-0">
                         <span class="inline-block px-1.5 py-0.5 bg-gray-100 text-gray-500 text-[10px] rounded shrink-0 mt-0.5">{{ src.get('source', '') | replace('perplexity_persona', 'perplexity') | replace('duckduckgo', 'ddg') }}</span>
                         <a href="{{ src.get('url', '#') }}" target="_blank" rel="noopener"
@@ -374,8 +374,8 @@
                 <summary class="px-5 py-3 text-gray-400 cursor-pointer hover:text-gray-600 font-medium">
                     &#127970; {{ empresa_sources | length }} fuentes
                 </summary>
-                <div class="px-5 pb-3 space-y-1.5">
-                    {% for src in empresa_sources[:10] %}
+                <div class="px-5 pb-3 space-y-1.5 max-h-48 overflow-y-auto">
+                    {% for src in empresa_sources %}
                     <div class="flex items-start gap-2 text-sm min-w-0">
                         <span class="inline-block px-1.5 py-0.5 bg-gray-100 text-gray-500 text-[10px] rounded shrink-0 mt-0.5">{{ src.get('source', '') | replace('perplexity_empresa', 'perplexity') | replace('perplexity_news', 'perplexity') | replace('google_search', 'google') | replace('google_news', 'news') | replace('corporate', 'web') }}</span>
                         <a href="{{ src.get('url', '#') }}" target="_blank" rel="noopener"

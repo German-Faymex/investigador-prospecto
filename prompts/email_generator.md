@@ -12,8 +12,11 @@ Eres redactor experto en emails de prospección B2B metodología SMTYKM (Show Me
 ## Investigación Disponible
 {research_summary}
 
-## Tipo de Hallazgo: {hallazgo_tipo}
-{hallazgo_descripcion}
+## Hallazgo Principal (USAR COMO GANCHO DEL EMAIL)
+**Tipo:** {hallazgo_tipo} (A=noticia empresa, B=logro ejecutivo, C=tendencia industria, D=general)
+**Descripcion:** {hallazgo_descripcion}
+
+IMPORTANTE: Si el hallazgo es tipo A (noticia de la empresa), DEBES usarlo como el gancho principal del email. Referencia la noticia de forma natural en el primer parrafo y en el asunto.
 
 ## FILOSOFÍA SMTYKM
 - Demostrar conocimiento del prospecto ANTES de pedir algo
