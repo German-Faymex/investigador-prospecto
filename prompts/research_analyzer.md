@@ -100,19 +100,28 @@ El `hallazgo_tipo` debe ser el MEJOR tipo encontrado entre todos los hallazgos.
    - Si el único hallazgo disponible es de otra región y NO es de impacto corporativo, clasifícalo como tipo D y baja el score.
 7. Si se proporciona "Sitio web corporativo", SIEMPRE inclúyelo en empresa.sitio_web
 
+## Regla Anti-Homonimia (CRÍTICA - LEER PRIMERO)
+
+8. **FILTRADO OBLIGATORIO POR EMPRESA**: Los datos scrapeados pueden contener información de PERSONAS HOMÓNIMAS (mismo nombre, diferente empresa/país). SOLO debes usar datos que correspondan a la persona en la empresa indicada en "Empresa" del prospecto.
+   - **DESCARTA** cualquier dato de LinkedIn, ZoomInfo, RocketReach, etc. que mencione una empresa DIFERENTE a la del prospecto.
+   - **DESCARTA** trayectorias, cargos, educación y ubicaciones que claramente pertenecen a otra persona con el mismo nombre.
+   - **Ejemplo**: Si el prospecto es "Juan Pérez" en "CODELCO", y los datos incluyen un "Juan Pérez" en "Alicorp" (Perú), IGNORA completamente los datos de Alicorp.
+   - **En caso de duda**: Si no puedes determinar si un dato pertenece a la persona correcta, NO lo incluyas. Es mejor dejar un campo vacío que mezclar información de dos personas diferentes.
+   - **Señal de alerta**: Si ves trayectorias con empresas que no tienen relación con la empresa del prospecto, es muy probable que sean de un homónimo.
+
 ## Reglas Anti-Alucinación (CRÍTICAS)
 
-8. **NUNCA inventes información sobre la PERSONA** que no esté presente en los datos proporcionados (cargo, trayectoria, educación, etc.). Si un dato personal no aparece en las fuentes, deja el campo vacío o pon "No disponible".
+9. **NUNCA inventes información sobre la PERSONA** que no esté presente en los datos proporcionados (cargo, trayectoria, educación, etc.). Si un dato personal no aparece en las fuentes, deja el campo vacío o pon "No disponible".
    - **Excepción OBLIGATORIA para datos de EMPRESA**: Si la empresa es conocida públicamente (ej: Copec, CODELCO, BHP, Anglo American, Enel, Antofagasta Minerals, SQM, CAP, Freeport, Glencore, etc.), DEBES completar TODOS los campos de empresa (industria, descripción, productos/servicios, tamaño, ubicación, desafíos, competidores, presencia) usando tu conocimiento general. Esto NO es invención — es información pública verificable. Es INACEPTABLE devolver campos vacíos para una empresa multinacional conocida.
-9. **Para cada hallazgo, INCLUYE las URLs** de las fuentes originales en el campo `sources`. Copia las URLs exactas que aparecen en los datos proporcionados.
-10. Si un dato solo aparece en 1 fuente, su confidence debe ser `"partial"`. Si aparece en 2+ fuentes, puede ser `"verified"`.
-11. **NO incluyas hallazgos sin fuente**. Si no hay una URL que respalde un dato, no lo conviertas en hallazgo.
-12. No inventes noticias, montos, contratos, fechas ni logros que no estén explícitamente en los datos scrapeados.
-13. **Números del sitio web corporativo**: Si el sitio web de la empresa menciona cifras, cítalas EXACTAMENTE como aparecen, con la unidad correcta (horas, proyectos, empleados, etc.). NO cambies la unidad ni confundas métricas distintas. Ejemplo: si dice "+89500 horas efectivas" NO lo conviertas en "+89500 proyectos". Siempre incluye "según su sitio web" y la URL fuente.
+10. **Para cada hallazgo, INCLUYE las URLs** de las fuentes originales en el campo `sources`. Copia las URLs exactas que aparecen en los datos proporcionados.
+11. Si un dato solo aparece en 1 fuente, su confidence debe ser `"partial"`. Si aparece en 2+ fuentes, puede ser `"verified"`.
+12. **NO incluyas hallazgos sin fuente**. Si no hay una URL que respalde un dato, no lo conviertas en hallazgo.
+13. No inventes noticias, montos, contratos, fechas ni logros que no estén explícitamente en los datos scrapeados.
+14. **Números del sitio web corporativo**: Si el sitio web de la empresa menciona cifras, cítalas EXACTAMENTE como aparecen, con la unidad correcta (horas, proyectos, empleados, etc.). NO cambies la unidad ni confundas métricas distintas. Ejemplo: si dice "+89500 horas efectivas" NO lo conviertas en "+89500 proyectos". Siempre incluye "según su sitio web" y la URL fuente.
 
 ## Extracción de Datos de LinkedIn (IMPORTANTE)
 
-14. **Datos de LinkedIn**: Los datos de LinkedIn son la fuente MÁS VALIOSA para información personal. EXTRAE MÁXIMO de ellos:
+15. **Datos de LinkedIn**: Los datos de LinkedIn son la fuente MÁS VALIOSA para información personal. PERO antes de usar un dato de LinkedIn, verifica que el perfil corresponda a la EMPRESA correcta del prospecto (ver regla #8 Anti-Homonimia). EXTRAE MÁXIMO de los perfiles que SÍ corresponden:
     - **Títulos LinkedIn** tienen formato: "Nombre - Headline | LinkedIn". El headline contiene cargo, título profesional, empresa.
     - **Snippets LinkedIn** contienen: headline completo, educación, ubicación geográfica.
     - Si ves texto como "Ingeniero Civil en X, MBA y Máster en Y, Cargo en Empresa" → esto es trayectoria Y educación.
@@ -121,4 +130,4 @@ El `hallazgo_tipo` debe ser el MEJOR tipo encontrado entre todos los hallazgos.
     - **Trayectoria**: Usa el headline de LinkedIn como base. Si dice "Ingeniero Civil en Metalurgia, MBA", eso ES la trayectoria profesional.
     - **Educación**: Extrae universidades y títulos mencionados en cualquier parte de los datos.
     - **Ubicación**: Extrae ciudad/país de cualquier mención geográfica.
-15. **Fuentes Perplexity**: Los datos de Perplexity (marcados como perplexity_persona o perplexity_empresa) provienen de búsqueda web real y son confiables para datos de persona. ÚSALOS para llenar campos de persona y empresa.
+16. **Fuentes Perplexity**: Los datos de Perplexity (marcados como perplexity_persona o perplexity_empresa) provienen de búsqueda web real y son confiables para datos de persona. ÚSALOS para llenar campos de persona y empresa. PERO aplica la misma regla anti-homonimia: solo usa datos que correspondan a la empresa correcta.
