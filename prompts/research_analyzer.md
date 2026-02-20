@@ -27,11 +27,14 @@ Responde ÚNICAMENTE con un JSON válido (sin markdown, sin texto adicional):
   "empresa": {
     "nombre": "Nombre de la empresa",
     "industria": "Industria/sector",
-    "tamaño": "Tamaño aproximado si disponible",
-    "descripcion": "Descripción breve del negocio basada en los datos",
+    "tamaño": "Tamaño aproximado (empleados) si disponible",
+    "descripcion": "Descripción del negocio. Para empresas conocidas (Anglo American, CODELCO, BHP, Enel, etc.) USA tu conocimiento general",
     "noticias_recientes": "Noticias o eventos recientes SI aparecen en los datos",
-    "productos_servicios": "Productos o servicios principales encontrados en los datos",
-    "presencia": "Presencia geográfica/mercados",
+    "productos_servicios": ["Lista de productos o servicios principales. Para empresas conocidas, USA tu conocimiento general"],
+    "desafios_sector": ["Desafíos actuales del sector/industria relevantes para esta empresa"],
+    "competidores": ["Principales competidores de esta empresa"],
+    "ubicacion": "Sede principal y operaciones relevantes",
+    "presencia": "Presencia geográfica/mercados donde opera",
     "sitio_web": "URL del sitio web corporativo si fue proporcionada"
   },
   "hallazgos": [
@@ -100,7 +103,7 @@ El `hallazgo_tipo` debe ser el MEJOR tipo encontrado entre todos los hallazgos.
 ## Reglas Anti-Alucinación (CRÍTICAS)
 
 8. **NUNCA inventes información sobre la PERSONA** que no esté presente en los datos proporcionados (cargo, trayectoria, educación, etc.). Si un dato personal no aparece en las fuentes, deja el campo vacío o pon "No disponible".
-   - **Excepción para datos de EMPRESA**: Si la empresa es conocida públicamente (ej: Copec, CODELCO, BHP, Enel, Anglo American), PUEDES completar los campos básicos de empresa (industria, descripción, productos/servicios) usando tu conocimiento general. Esto NO es invención — es información pública verificable. Marca estos datos como fuente "conocimiento general" en los hallazgos.
+   - **Excepción OBLIGATORIA para datos de EMPRESA**: Si la empresa es conocida públicamente (ej: Copec, CODELCO, BHP, Anglo American, Enel, Antofagasta Minerals, SQM, CAP, Freeport, Glencore, etc.), DEBES completar TODOS los campos de empresa (industria, descripción, productos/servicios, tamaño, ubicación, desafíos, competidores, presencia) usando tu conocimiento general. Esto NO es invención — es información pública verificable. Es INACEPTABLE devolver campos vacíos para una empresa multinacional conocida.
 9. **Para cada hallazgo, INCLUYE las URLs** de las fuentes originales en el campo `sources`. Copia las URLs exactas que aparecen en los datos proporcionados.
 10. Si un dato solo aparece en 1 fuente, su confidence debe ser `"partial"`. Si aparece en 2+ fuentes, puede ser `"verified"`.
 11. **NO incluyas hallazgos sin fuente**. Si no hay una URL que respalde un dato, no lo conviertas en hallazgo.

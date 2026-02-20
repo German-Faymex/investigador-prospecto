@@ -60,7 +60,8 @@ class PerplexityScraper(BaseScraper):
             '  "empresa": {\n'
             '    "nombre": "", "industria": "", "descripcion": "",\n'
             '    "productos_servicios": [], "tamano_empleados": "",\n'
-            '    "ubicacion": "", "sitio_web": ""\n'
+            '    "ubicacion": "", "sitio_web": "",\n'
+            '    "desafios_sector": [], "competidores": [], "presencia": ""\n'
             "  },\n"
             '  "hallazgos": []\n'
             "}"
@@ -75,8 +76,9 @@ class PerplexityScraper(BaseScraper):
             f"educación universitaria, ubicación geográfica (ciudad/país)\n"
             f"2. Si no encuentras LinkedIn, busca cualquier perfil público con su trayectoria "
             f"profesional, formación académica y ubicación\n"
-            f"3. Información de {company}: industria, productos/servicios, tamaño, sitio web, "
-            f"descripción del negocio, operaciones principales\n\n"
+            f"3. Información de {company}: industria, productos/servicios, tamaño (empleados), sitio web, "
+            f"descripción del negocio, operaciones principales, competidores, presencia geográfica, "
+            f"desafíos del sector\n\n"
             f"CAMPOS PRIORITARIOS para la persona:\n"
             f"- educacion: nombre de universidad/institución y título/carrera obtenida\n"
             f"- ubicacion: ciudad y país donde trabaja o reside\n"
@@ -187,6 +189,12 @@ class PerplexityScraper(BaseScraper):
                 parts.append(f"Tamaño: {empresa['tamano_empleados']}")
             if empresa.get("ubicacion"):
                 parts.append(f"Ubicación: {empresa['ubicacion']}")
+            if empresa.get("presencia"):
+                parts.append(f"Presencia: {empresa['presencia']}")
+            if empresa.get("competidores"):
+                parts.append(f"Competidores: {', '.join(empresa['competidores'][:5])}")
+            if empresa.get("desafios_sector"):
+                parts.append(f"Desafíos: {', '.join(empresa['desafios_sector'][:3])}")
 
             if parts:
                 items.append(ScrapedItem(
