@@ -58,18 +58,20 @@ class ResearchService:
                 for it in items:
                     if not it.url:
                         continue
-                    # Filter LinkedIn results: only keep those mentioning the target company
-                    if it.source == "linkedin" or ("linkedin.com/in/" in it.url and it.source in ("duckduckgo", "google_search")):
-                        item_text = f"{it.title} {it.snippet}".lower()
-                        if company_lower and not self._text_mentions_company(item_text, company_lower):
-                            continue
-                    # Filter out noisy/paywalled sources from displayed sources
                     url_lower = it.url.lower()
+                    # Filter out noisy/paywalled sources
                     if any(d in url_lower for d in _noisy_domains):
                         continue
+                    item_text = f"{it.title} {it.snippet}".lower()
+                    # For search engine results (DDG, Google): only keep if they
+                    # mention the company or are the company's own site.
+                    # This prevents homonym contamination (other people with same name).
+                    if it.source in ("duckduckgo", "google_search", "linkedin"):
+                        is_company_site = company_lower.replace(" ", "") in url_lower.replace(" ", "")
+                        if not is_company_site and not self._text_mentions_company(item_text, company_lower):
+                            continue
                     # Filter news results: only keep if they mention the company or person
                     if it.source in ("duckduckgo_news", "google_news"):
-                        item_text = f"{it.title} {it.snippet}".lower()
                         if not self._text_mentions_company(item_text, company_lower) and name_lower not in item_text:
                             continue
                     result.raw_sources.append(
