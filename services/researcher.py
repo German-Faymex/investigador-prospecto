@@ -115,6 +115,13 @@ class ResearchService:
                         if role:
                             result.cargo_descubierto = role
                             result.persona["cargo"] = role
+                        # Filtrar hallazgos que atribuyen cargos incorrectos al prospecto
+                        # (ej: LLM genera "Perfil LinkedIn muestra a X como Jefe de Bodega"
+                        # cuando el cargo real es otro — dato de perfil homónimo o company page)
+                        if role:
+                            result.hallazgos = self._filter_contradictory_hallazgos(
+                                result.hallazgos, role
+                            )
                         return result
 
             # Fallback: si no hay datos de scraping, investigar directo con LLM
@@ -545,6 +552,29 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
             if word in text:
                 return True
         return False
+
+    @staticmethod
+    def _filter_contradictory_hallazgos(hallazgos: list[dict], role: str) -> list[dict]:
+        """Filtrar hallazgos que atribuyen un cargo diferente al prospecto.
+
+        Cuando DDG devuelve un perfil LinkedIn de un homónimo o la company page,
+        el LLM puede generar hallazgos como "Perfil LinkedIn muestra a X como
+        Jefe de Bodega" cuando el cargo real es otro. Estos confunden al usuario.
+        """
+        role_lower = role.lower().strip()
+        # Palabras clave que indican que el hallazgo habla de un cargo
+        cargo_markers = ("muestra a", "muestra como", "aparece como", "figura como",
+                         "perfil de linkedin", "según linkedin", "headline")
+        filtered = []
+        for h in hallazgos:
+            content = h.get("content", "").lower()
+            # Solo filtrar hallazgos que hablan de cargos LinkedIn
+            mentions_cargo = any(m in content for m in cargo_markers)
+            if mentions_cargo and role_lower not in content:
+                print(f"[Research] Hallazgo filtrado (cargo contradictorio): {h.get('content', '')[:80]}...")
+                continue
+            filtered.append(h)
+        return filtered
 
     @staticmethod
     def _fill_if_empty(d: dict, key: str, value: str):
