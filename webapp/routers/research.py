@@ -32,8 +32,8 @@ async def do_research(
 
         if result.error and result.score == 0:
             return templates.TemplateResponse(
-                "partials/error.html",
-                {"request": request, "error": result.error},
+                request, "partials/error.html",
+                {"error": result.error},
             )
 
         # Auto-generate email
@@ -50,9 +50,8 @@ async def do_research(
         result_dict = dataclasses.asdict(result)
 
         return templates.TemplateResponse(
-            "partials/research_result.html",
+            request, "partials/research_result.html",
             {
-                "request": request,
                 "result": result,
                 "result_json": json.dumps(result_dict, ensure_ascii=False),
                 "name": name,
@@ -62,8 +61,8 @@ async def do_research(
         )
     except Exception as e:
         return templates.TemplateResponse(
-            "partials/error.html",
-            {"request": request, "error": str(e)},
+            request, "partials/error.html",
+            {"error": str(e)},
         )
 
 

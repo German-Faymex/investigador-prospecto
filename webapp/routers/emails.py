@@ -24,11 +24,11 @@ async def generate_email(request: Request, research_data: str = Form(...)):
         email = await generator.generate(research)
 
         return templates.TemplateResponse(
-            "partials/email_editor.html",
-            {"request": request, "email": email},
+            request, "partials/email_editor.html",
+            {"email": email},
         )
     except Exception as e:
         return templates.TemplateResponse(
-            "partials/error.html",
-            {"request": request, "error": f"Error generando email: {e}"},
+            request, "partials/error.html",
+            {"error": f"Error generando email: {e}"},
         )
