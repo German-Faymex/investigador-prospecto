@@ -126,6 +126,15 @@ El `hallazgo_tipo` debe ser el MEJOR tipo encontrado entre todos los hallazgos.
    - **En caso de duda**: Si no puedes determinar si un dato pertenece a la persona correcta, NO lo incluyas. Es mejor dejar un campo vacío que mezclar información de dos personas diferentes.
    - **Señal de alerta**: Si ves trayectorias con empresas que no tienen relación con la empresa del prospecto, es muy probable que sean de un homónimo.
 
+## Regla Anti-Contaminación de Página Empresa (CRÍTICA)
+
+8b. **NO mezclar cargos de otros empleados con el prospecto**: Las páginas de empresa LinkedIn (linkedin.com/company/...) listan MÚLTIPLES empleados con sus cargos. NUNCA atribuyas al prospecto cargos que pertenecen a OTRAS personas de la misma empresa.
+   - **Señal de alerta**: Si ves una lista con múltiples cargos diferentes (ej: "Gerente de Operaciones", "Jefe de Prevención de Riesgos", "Jefe de Bodega") provenientes de la MISMA fuente (página empresa), son cargos de DIFERENTES personas.
+   - **Regla**: Solo usa cargos que estén EXPLÍCITAMENTE asociados al nombre del prospecto, no cargos que simplemente aparezcan en la página de la empresa.
+   - **En trayectoria**: NO listes cargos de otros empleados como si fueran cargos anteriores del prospecto. Si no tienes datos verificados de cargos anteriores, pon solo el cargo actual.
+   - **Ejemplo MALO**: Prospecto es "Germán Peralta" en Faymex. La página empresa lista "Gerente de Operaciones: Juan López" y "Jefe Prevención de Riesgos: María García". NO pongas esos cargos en la trayectoria de Germán.
+   - **Ejemplo BUENO**: Solo poner "Actualmente [cargo proporcionado/verificado] en Faymex." si no hay datos de cargos anteriores del prospecto específicamente.
+
 ## Reglas Anti-Alucinación (CRÍTICAS)
 
 9. **NUNCA inventes información sobre la PERSONA** que no esté presente en los datos proporcionados (cargo, trayectoria, educación, etc.). Si un dato personal no aparece en las fuentes, deja el campo vacío o pon "No disponible".

@@ -277,10 +277,17 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
                 if has_role_keywords and role_lower not in fact_lower:
                     print(f"[Research] Descartando dato ZoomInfo con cargo contradictorio: {fact.content[:80]}...")
                     continue
+            # Detect company LinkedIn page data (lists multiple employees)
+            is_company_page = any("linkedin.com/company" in url for url in fact.sources)
+
             emoji = "✅" if fact.confidence == "verified" else "⚠️"
             sources_str = ", ".join(fact.source_names)
             urls_str = " | ".join(fact.sources[:3])
-            reliability_note = " ⚠️ FUENTE NO CONFIABLE para cargo personal" if is_zoominfo else ""
+            reliability_note = ""
+            if is_zoominfo:
+                reliability_note = " ⚠️ FUENTE NO CONFIABLE para cargo personal"
+            elif is_company_page:
+                reliability_note = " ⚠️ PÁGINA EMPRESA: puede listar cargos de OTROS empleados, NO atribuir al prospecto"
             lines.append(f"{emoji} **Dato {i}** [{fact.confidence}] (fuentes: {sources_str}){reliability_note}")
             lines.append(f"   {fact.content}")
             if urls_str:
@@ -368,6 +375,7 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
         company_lower = company.lower().strip()
 
         # Recopilar texto SOLO de items que correspondan a la empresa correcta
+        # EXCLUIR company pages que listan cargos de otros empleados
         linkedin_texts = []
         for item in items:
             is_linkedin = (
@@ -376,6 +384,10 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
                 or item.source == "perplexity_persona"
             )
             if not is_linkedin or not (item.title or item.snippet):
+                continue
+            # Skip company LinkedIn pages — they list multiple employees
+            if "linkedin.com/company" in item.url or "linkedin.com/posts" in item.url:
+                print(f"[Research] Excluyendo company/post page de enriquecimiento: {item.url[:60]}")
                 continue
             # Filtrar: solo usar si el item menciona la empresa del prospecto
             item_text = f"{item.title} {item.snippet}".lower()
