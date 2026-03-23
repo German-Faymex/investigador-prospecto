@@ -556,12 +556,12 @@ async def test_linkedin_direct_profile_public():
     </html>
     """
 
-    async def mock_request(url, params=None):
+    async def mock_tls_fetch(url, timeout=15):
         if "roberto-garcia" in url:
-            return profile_html
-        return None
+            return (200, profile_html)
+        return (999, "")
 
-    with patch.object(scraper, "_make_request", side_effect=mock_request):
+    with patch("scraper.linkedin.tls_fetch", side_effect=mock_tls_fetch):
         result = await scraper._try_direct_profile("Roberto Garcia")
 
     assert len(result) == 1, f"Debería encontrar 1 perfil, obtuvo {len(result)}"
