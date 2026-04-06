@@ -7,6 +7,7 @@ PROJECT_ROOT = WEBAPP_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
@@ -16,6 +17,14 @@ app = FastAPI(
     title="Investigador de Prospectos",
     description="Herramienta de investigación B2B para Faymex",
     version="1.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.mount("/static", StaticFiles(directory=str(WEBAPP_DIR / "static")), name="static")

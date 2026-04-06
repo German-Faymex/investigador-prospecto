@@ -5,10 +5,32 @@ import json
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 from pathlib import Path
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
+
+
+class ResearchRequest(BaseModel):
+    """JSON body for the /research/json endpoint."""
+    name: str
+    company: str
+    role: str
+    location: str = ""
+
+
+@router.post("/research/json")
+async def do_research_json(req: ResearchRequest):
+    """Execute prospect research and return JSON (for external API consumers)."""
+    name = _title_case(req.name)
+
+    from services.researcher import ResearchService
+
+    service = ResearchService()
+    result = await service.investigate(name, req.company, req.role, req.location)
+
+    return dataclasses.asdict(result)
 
 
 @router.post("/research", response_class=HTMLResponse)
