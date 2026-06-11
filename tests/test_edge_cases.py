@@ -590,7 +590,7 @@ async def test_email_generator_cleans_no_disponible_cargo():
 
     # Capturar el prompt que se envía al LLM
     captured_prompt = None
-    async def mock_complete(system, user):
+    async def mock_complete(system, user, json_schema=None):
         nonlocal captured_prompt
         captured_prompt = user
         return MockLLMResponse(content='{"asunto": "Test", "cuerpo_html": "<p>Test</p>", "cuerpo_texto": "Test", "razonamiento": "Test"}')

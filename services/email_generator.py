@@ -7,6 +7,7 @@ from typing import Optional
 
 from services.llm_client import LLMClient
 from services.researcher import ResearchResult
+from services.schemas import EMAIL_SCHEMA
 from config.settings import get_settings
 
 PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
@@ -61,7 +62,7 @@ class EmailGenerator:
         user_prompt = user_prompt.replace("{location}", location)
 
         # Llamar al LLM
-        llm_response = await self.llm.complete(system_prompt, user_prompt)
+        llm_response = await self.llm.complete(system_prompt, user_prompt, json_schema=EMAIL_SCHEMA)
 
         # Parsear respuesta JSON
         parsed = self._parse_response(llm_response.content)

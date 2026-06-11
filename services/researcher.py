@@ -9,6 +9,7 @@ from scraper.orchestrator import ScraperOrchestrator
 from scraper.base import ScrapedItem
 from services.verifier import Verifier
 from services.llm_client import LLMClient
+from services.schemas import RESEARCH_SCHEMA
 
 
 PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
@@ -92,7 +93,7 @@ class ResearchService:
                     corporate_domain = self.orchestrator.discovered_domain
                     context = self._build_llm_context(name, company, role, verified_facts, location, corporate_domain)
                     system_prompt = self._load_prompt("research_analyzer.md")
-                    llm_response = await self.llm.complete(system_prompt, context)
+                    llm_response = await self.llm.complete(system_prompt, context, json_schema=RESEARCH_SCHEMA)
                     result.llm_used = llm_response.model_used
 
                     parsed = self._parse_llm_response(llm_response.content)
@@ -212,7 +213,7 @@ Si la persona no es una figura publica conocida, devuelve la mayoria de campos c
 IMPORTANTE: Si no conoces a esta persona o empresa, devuelve campos vacios con score bajo (10-20).
 NO inventes nada. Responde SOLO con el JSON estructurado."""
 
-        llm_response = await self.llm.complete(system_prompt, user_prompt)
+        llm_response = await self.llm.complete(system_prompt, user_prompt, json_schema=RESEARCH_SCHEMA)
         result = ResearchResult(llm_used=f"{llm_response.model_used} (sin verificar)")
 
         parsed = self._parse_llm_response(llm_response.content)

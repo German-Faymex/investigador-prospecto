@@ -1,11 +1,41 @@
 # Investigador de Prospectos — Progreso de Desarrollo
 
-## Última actualización: 2026-03-23T14:30:00-03:00
+## Última actualización: 2026-06-11
 
 ## Estado actual
-- Tarea actual: Completada — LinkedIn Deep Scraper + fixes de contaminación
-- Branch activo: main (feature/linkedin-deep-scraper mergeado)
-- Último commit: b74b2ff fix: filter hallazgos that attribute wrong LinkedIn cargo to prospect
+- Tarea actual: Completada — JSON garantizado en respuestas LLM (structured outputs)
+- Branch activo: main
+
+## Sesión 11 jun 2026 — fixes de confiabilidad LLM
+1. **fix: modelo Haiku retirado** — `claude-3-5-haiku-20241022` fue retirado el 19-feb-2026
+   y devolvía 404: el fallback cuando DeepSeek fallaba estaba roto en silencio.
+   Reemplazado por `claude-haiku-4-5` en `config/settings.py`. Verificado con llamada real.
+2. **feat: JSON garantizado** — antes el JSON se extraía con regex y un parseo fallido
+   perdía toda la investigación. Ahora:
+   - `services/schemas.py` (NUEVO): RESEARCH_SCHEMA y EMAIL_SCHEMA (JSON Schema).
+   - `LLMClient.complete(..., json_schema=)`: DeepSeek usa `response_format: json_object`;
+     Haiku usa structured outputs (`output_config.format`, validación contra esquema).
+   - Tres call sites actualizados (researcher x2, email_generator).
+   - Prompt `research_analyzer.md` alineado al esquema (`tamano_empleados`,
+     `noticias_recientes` como lista, persona con logros/experiencia).
+   - `_parse_llm_response` queda como red de seguridad.
+   Verificado con llamadas reales a ambos proveedores + 42 tests pasando.
+
+## Mejoras pendientes propuestas (auditoría 11 jun, en orden)
+1. Resolución de entidades con LLM antes del análisis (reemplaza los filtros regex
+   anti-homónimos/company-pages, la fuente principal de errores de atribución).
+2. Verifier: deduplicar por dominio antes de contar "diversidad de fuentes"
+   (Google+DDG con la misma URL no son 2 fuentes).
+3. Desactivar scraping LinkedIn TLS en producción (999 desde Railway) o evaluar
+   web search server-side de Anthropic como reemplazo de Google/DDG.
+4. Persistencia (SQLite): caché por empresa, historial, feedback de emails.
+5. Score determinístico en código (hoy lo asigna el LLM).
+6. `_fix_email_closing` asume "Quedo atento," (falla con remitente mujer).
+
+---
+
+# Historial — Sesión 23 mar 2026
+- Último commit de esa sesión: b74b2ff fix: filter hallazgos that attribute wrong LinkedIn cargo to prospect
 
 ## Lo que se completó en esta sesión (23 mar 2026)
 

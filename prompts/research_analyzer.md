@@ -22,14 +22,16 @@ Responde ÚNICAMENTE con un JSON válido (sin markdown, sin texto adicional):
     "trayectoria": "Resumen de trayectoria SOLO con datos de las fuentes proporcionadas",
     "educacion": "Educación SOLO si aparece en los datos",
     "intereses": "Intereses profesionales detectados en los datos",
-    "ubicacion": "Ciudad/País si disponible en los datos"
+    "ubicacion": "Ciudad/País si disponible en los datos",
+    "logros_recientes": ["Logros recientes SOLO si aparecen en los datos"],
+    "experiencia_previa": ["Cargos/empresas anteriores SOLO si aparecen en los datos"]
   },
   "empresa": {
     "nombre": "Nombre de la empresa",
     "industria": "Industria/sector",
-    "tamaño": "Tamaño aproximado (empleados) si disponible",
+    "tamano_empleados": "Tamaño aproximado (empleados) si disponible",
     "descripcion": "Descripción del negocio. Para empresas conocidas (Anglo American, CODELCO, BHP, Enel, etc.) USA tu conocimiento general",
-    "noticias_recientes": "Noticias o eventos recientes SI aparecen en los datos",
+    "noticias_recientes": ["Lista de noticias o eventos recientes SI aparecen en los datos"],
     "productos_servicios": ["Lista de productos o servicios principales. Para empresas conocidas, USA tu conocimiento general"],
     "desafios_sector": ["Desafíos actuales del sector/industria relevantes para esta empresa"],
     "competidores": ["Principales competidores de esta empresa"],

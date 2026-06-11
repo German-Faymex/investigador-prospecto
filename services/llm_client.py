@@ -24,24 +24,33 @@ class LLMClient:
     def __init__(self):
         self.settings = get_settings()
 
-    async def complete(self, system_prompt: str, user_prompt: str) -> LLMResponse:
-        """Enviar prompt al LLM. DeepSeek primario, Haiku fallback."""
+    async def complete(
+        self, system_prompt: str, user_prompt: str, json_schema: Optional[dict] = None
+    ) -> LLMResponse:
+        """Enviar prompt al LLM. DeepSeek primario, Haiku fallback.
+
+        Si se pasa json_schema, la respuesta viene en JSON garantizado:
+        - DeepSeek: modo json_object (JSON válido, sin enforcement de esquema)
+        - Haiku: structured outputs (la API valida contra el esquema)
+        """
         # Intentar DeepSeek primero si tiene API key
         if self.settings.llm.deepseek_api_key:
-            result = await self._call_deepseek(system_prompt, user_prompt)
+            result = await self._call_deepseek(system_prompt, user_prompt, json_schema)
             if result:
                 return result
             print("[LLM] DeepSeek falló, usando Haiku como fallback")
 
         # Fallback a Haiku
         if self.settings.llm.anthropic_api_key:
-            result = await self._call_haiku(system_prompt, user_prompt)
+            result = await self._call_haiku(system_prompt, user_prompt, json_schema)
             if result:
                 return result
 
         raise RuntimeError("No hay LLM disponible. Configura DEEPSEEK_API_KEY o ANTHROPIC_API_KEY")
 
-    async def _call_deepseek(self, system_prompt: str, user_prompt: str) -> Optional[LLMResponse]:
+    async def _call_deepseek(
+        self, system_prompt: str, user_prompt: str, json_schema: Optional[dict] = None
+    ) -> Optional[LLMResponse]:
         """Llamar a DeepSeek API (OpenAI-compatible)."""
         headers = {
             "Authorization": f"Bearer {self.settings.llm.deepseek_api_key}",
@@ -56,6 +65,10 @@ class LLMClient:
             "temperature": 0.2,
             "max_tokens": 3000,
         }
+        if json_schema:
+            # DeepSeek no soporta json_schema; json_object garantiza JSON válido.
+            # Requiere que la palabra "json" aparezca en el prompt (ya presente).
+            payload["response_format"] = {"type": "json_object"}
 
         try:
             async with httpx.AsyncClient(timeout=60) as client:
@@ -80,7 +93,9 @@ class LLMClient:
             print(f"[LLM] DeepSeek exception: {e}")
             return None
 
-    async def _call_haiku(self, system_prompt: str, user_prompt: str) -> Optional[LLMResponse]:
+    async def _call_haiku(
+        self, system_prompt: str, user_prompt: str, json_schema: Optional[dict] = None
+    ) -> Optional[LLMResponse]:
         """Llamar a Anthropic Haiku API."""
         headers = {
             "x-api-key": self.settings.llm.anthropic_api_key,
@@ -96,6 +111,11 @@ class LLMClient:
             ],
             "temperature": 0.2,
         }
+        if json_schema:
+            # Structured outputs: la API garantiza JSON válido contra el esquema
+            payload["output_config"] = {
+                "format": {"type": "json_schema", "schema": json_schema}
+            }
 
         try:
             async with httpx.AsyncClient(timeout=60) as client:
