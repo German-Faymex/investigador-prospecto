@@ -48,11 +48,13 @@ RESEARCH_SCHEMA = {
                 "ubicacion": _STR,
                 "presencia": _STR,
                 "sitio_web": _STR,
+                "sitio_web_corresponde": {"type": "boolean"},
             },
             "required": [
                 "nombre", "industria", "tamano_empleados", "descripcion",
                 "noticias_recientes", "productos_servicios", "desafios_sector",
                 "competidores", "ubicacion", "presencia", "sitio_web",
+                "sitio_web_corresponde",
             ],
             "additionalProperties": False,
         },

@@ -37,7 +37,8 @@ Responde ÚNICAMENTE con un JSON válido (sin markdown, sin texto adicional):
     "competidores": ["Principales competidores de esta empresa"],
     "ubicacion": "Sede principal y operaciones relevantes",
     "presencia": "Presencia geográfica/mercados donde opera",
-    "sitio_web": "SOLO la URL indicada en 'Sitio web corporativo' de los datos. NUNCA uses el dominio de una noticia, un proveedor o un tercero que mencione a la empresa. Si no fue proporcionada, deja vacío"
+    "sitio_web": "SOLO la URL indicada en 'Sitio web corporativo' de los datos, y SOLO si realmente pertenece a la empresa del prospecto. NUNCA uses el dominio de una noticia, un proveedor o un tercero. Si no fue proporcionada o no corresponde, deja vacío",
+    "sitio_web_corresponde": "boolean. El 'Sitio web corporativo' de los datos fue descubierto AUTOMÁTICAMENTE y puede ser de una empresa homónima (ej: para la empresa chilena 'abc', el dominio abc.com es de ABC Network, una cadena de TV de EE.UU.). Evalúa si el contenido scrapeado de ese sitio es consistente con la empresa del prospecto (industria, país, contexto de las demás fuentes). false = el sitio es de OTRA empresa; en ese caso deja sitio_web vacío y NO uses datos de ese sitio para describir la empresa"
   },
   "hallazgos": [
     {

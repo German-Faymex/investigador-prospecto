@@ -80,3 +80,51 @@ class TestSanitizeSitioWeb:
         r = self._result_con_sitio("")
         ResearchService._sanitize_sitio_web(r, "Noracid", "https://noracid.cl")
         assert r.empresa["sitio_web"] == "https://noracid.cl"
+
+
+class TestSitioWebHomonimo:
+    """Caso 'abc': el dominio contiene el nombre pero es de OTRA empresa
+    (abc.com = ABC Network, no la empresa chilena 'abc'). La validación por
+    nombre no puede distinguirlos; el veredicto viene del LLM vía
+    empresa.sitio_web_corresponde=false."""
+
+    def _result(self, sitio: str, corresponde) -> ResearchResult:
+        r = ResearchResult()
+        r.empresa = {"nombre": "abc", "sitio_web": sitio}
+        if corresponde is not None:
+            r.empresa["sitio_web_corresponde"] = corresponde
+        return r
+
+    def test_llm_veta_dominio_homonimo(self):
+        r = self._result("https://www.abc.com", corresponde=False)
+        ResearchService._sanitize_sitio_web(r, "abc", "https://www.abc.com")
+        assert r.empresa["sitio_web"] == ""
+
+    def test_veto_evita_rellenar_con_dominio_descubierto(self):
+        # LLM dejó sitio_web vacío y marcó corresponde=false: NO rellenar
+        r = self._result("", corresponde=False)
+        ResearchService._sanitize_sitio_web(r, "abc", "https://www.abc.com")
+        assert r.empresa["sitio_web"] == ""
+
+    def test_corresponde_true_conserva_dominio(self):
+        r = self._result("https://www.abc.com", corresponde=True)
+        ResearchService._sanitize_sitio_web(r, "abc", "https://www.abc.com")
+        assert r.empresa["sitio_web"] == "https://www.abc.com"
+
+    def test_sin_flag_se_asume_valido(self):
+        # Compatibilidad: DeepSeek (sin schema enforcement) puede omitir el campo
+        r = self._result("https://www.abc.com", corresponde=None)
+        ResearchService._sanitize_sitio_web(r, "abc", "https://www.abc.com")
+        assert r.empresa["sitio_web"] == "https://www.abc.com"
+
+    def test_flag_se_remueve_del_resultado(self):
+        # Es un campo de control: no debe llegar a la UI ni al email
+        r = self._result("https://www.abc.com", corresponde=True)
+        ResearchService._sanitize_sitio_web(r, "abc", "https://www.abc.com")
+        assert "sitio_web_corresponde" not in r.empresa
+
+    def test_veto_no_bloquea_sitio_distinto_valido(self):
+        # Perplexity puede aportar el sitio real después del veto al descubierto
+        r = self._result("https://www.empresasabc.cl", corresponde=False)
+        ResearchService._sanitize_sitio_web(r, "abc", "https://www.abc.com")
+        assert r.empresa["sitio_web"] == "https://www.empresasabc.cl"

@@ -223,6 +223,7 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
         if parsed:
             result.persona = parsed.get("persona", {})
             result.empresa = parsed.get("empresa", {})
+            result.empresa.pop("sitio_web_corresponde", None)  # campo de control, no es dato
             result.hallazgos = parsed.get("hallazgos", [])
 
             # Forzar limites: sin scraping, nunca puede ser tipo A/B ni score > 45
@@ -254,7 +255,11 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
             f"- Ubicacion: {location or 'No especificada'}",
         ]
         if corporate_domain:
-            lines.append(f"- Sitio web corporativo: {corporate_domain}")
+            lines.append(
+                f"- Sitio web corporativo: {corporate_domain} "
+                "(CANDIDATO descubierto automáticamente — puede ser de una empresa "
+                "homónima; valida con sitio_web_corresponde)"
+            )
         if role:
             lines.extend([
                 "",
@@ -584,24 +589,40 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
     def _sanitize_sitio_web(result: ResearchResult, company: str, corporate_domain: Optional[str]):
         """Descartar sitio_web si su dominio no corresponde a la empresa.
 
-        El LLM puede tomar el dominio de una noticia o un proveedor que aparece
-        en los datos scrapeados (ej: metso.com al investigar Noracid, porque
-        Metso construyó su planta). El dominio descubierto y validado por
-        CorporateSiteScraper es autoritativo; sin él, el dominio debe contener
-        el nombre de la empresa. Mejor campo vacío que el sitio de otra empresa.
+        Dos vectores de contaminación:
+        1. El LLM toma el dominio de una noticia o proveedor de los datos
+           scrapeados (ej: metso.com al investigar Noracid). Se detecta porque
+           el dominio no contiene el nombre de la empresa.
+        2. El dominio descubierto es de una empresa HOMÓNIMA (ej: abc.com es
+           ABC Network, no la empresa chilena 'abc'). El nombre SÍ coincide,
+           así que aquí el veredicto viene del LLM: sitio_web_corresponde=false.
+
+        Mejor campo vacío que el sitio de otra empresa.
         """
         from urllib.parse import urlparse
         from scraper.corporate_site import CorporateSiteScraper
 
+        # Veredicto del LLM sobre el dominio descubierto (homónimos).
+        # pop(): es un campo de control, no debe llegar a la UI.
+        corresponde = result.empresa.pop("sitio_web_corresponde", True)
+        corp_netloc = urlparse(corporate_domain).netloc.replace("www.", "") if corporate_domain else ""
+
+        def _netloc(url: str) -> str:
+            return urlparse(url if "://" in url else f"https://{url}").netloc.replace("www.", "")
+
         sitio = (result.empresa.get("sitio_web") or "").strip()
         if sitio:
-            netloc = urlparse(sitio if "://" in sitio else f"https://{sitio}").netloc
-            corp_netloc = urlparse(corporate_domain).netloc if corporate_domain else ""
-            same_as_corp = bool(corp_netloc) and netloc.replace("www.", "") == corp_netloc.replace("www.", "")
-            if not same_as_corp and not CorporateSiteScraper._domain_matches_company(netloc, company):
+            netloc = _netloc(sitio)
+            same_as_corp = bool(corp_netloc) and netloc == corp_netloc
+            if same_as_corp and corresponde is False:
+                # El LLM determinó que el dominio descubierto es de otra empresa
+                print(f"[Research] sitio_web descartado (LLM: dominio homónimo de otra empresa): {sitio}")
+                result.empresa["sitio_web"] = ""
+            elif not same_as_corp and not CorporateSiteScraper._domain_matches_company(netloc, company):
                 print(f"[Research] sitio_web descartado (dominio de tercero): {sitio}")
                 result.empresa["sitio_web"] = ""
-        if corporate_domain and not result.empresa.get("sitio_web"):
+        # Rellenar con el dominio descubierto solo si el LLM no lo vetó
+        if corporate_domain and corresponde is not False and not result.empresa.get("sitio_web"):
             result.empresa["sitio_web"] = corporate_domain
 
     @staticmethod
