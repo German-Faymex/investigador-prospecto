@@ -28,6 +28,13 @@
 - 7 tests nuevos en `tests/test_enrichment_own_profile.py` (70 total)
 - Archivos: `services/researcher.py`
 
+**1d. Fix: datos de un homónimo atribuidos al prospecto (Nadia de California)**
+- **Síntoma**: educación/ubicación de OTRA persona con nombre parecido (Cal Poly Pomona / San José) mostradas como del prospecto
+- **Causa (2 huecos)**: (a) la query de fallback de LinkedIn acorta el nombre y, si ningún resultado mencionaba la empresa, devolvía igual los 2 primeros homónimos; (b) los filtros anti-homónimos solo protegían la UI y el enriquecimiento — los items contaminados llegaban igual al LLM como "hechos"
+- **Fix**: `_search_ddg_api` exige nombre completo cuando no hay match de empresa (si no, devuelve vacío y se intenta la siguiente query); nuevo `_is_relevant_item()` en researcher filtra los items ANTES del verifier/LLM con las mismas reglas que la UI
+- 8 tests nuevos (78 total)
+- Archivos: `scraper/linkedin.py`, `services/researcher.py`
+
 **2. JSON garantizado en respuestas LLM (structured outputs)**
 - Antes el JSON se extraía con regex; un parseo fallido perdía toda la investigación ya pagada
 - `services/schemas.py` (nuevo): `RESEARCH_SCHEMA` y `EMAIL_SCHEMA` en JSON Schema

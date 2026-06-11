@@ -49,6 +49,22 @@ class ResearchService:
             print(f"[Research] Investigando: {name} @ {company}")
             items = await self.orchestrator.search_all(name, company, role, location)
 
+            # 1b. Excluir DEL ANÁLISIS items sin relación con el prospecto.
+            # Antes esto solo se filtraba para la UI: los items de homónimos
+            # llegaban igual al LLM como "hechos" y contaminaban educación/
+            # ubicación (ej: la educación de una Nadia Ramirez de California
+            # atribuida a la Nadia de Desert King Chile).
+            if items:
+                company_lower = company.lower().strip()
+                name_lower = name.lower().strip()
+                relevant = [
+                    it for it in items
+                    if self._is_relevant_item(it, name_lower, company_lower)
+                ]
+                if len(relevant) != len(items):
+                    print(f"[Research] {len(items) - len(relevant)} items sin relación con el prospecto excluidos del análisis")
+                items = relevant
+
             if items:
                 # 2. Guardar fuentes raw (filtrar homónimos, fuentes no útiles, noticias irrelevantes)
                 company_lower = company.lower().strip()
@@ -557,6 +573,27 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
             best = max(headlines, key=len)
             return best
         return ""
+
+    def _is_relevant_item(self, it: ScrapedItem, name_lower: str, company_lower: str) -> bool:
+        """Decidir si un item scrapeado corresponde realmente al prospecto.
+
+        Aplica a resultados de buscadores (homónimos) y noticias (irrelevantes).
+        Corporate y Perplexity ya vienen validados/curados aguas arriba.
+        """
+        item_text = f"{it.title} {it.snippet}".lower()
+        url_lower = (it.url or "").lower()
+        if it.source in ("duckduckgo", "google_search", "linkedin"):
+            if company_lower.replace(" ", "") in url_lower.replace(" ", ""):
+                return True
+            if self._text_mentions_company(item_text, company_lower):
+                return True
+            # Perfil seleccionado por el LinkedIn scraper con nombre completo
+            return it.source == "linkedin" and self._text_mentions_full_name(item_text, name_lower)
+        if it.source in ("duckduckgo_news", "google_news"):
+            return self._text_mentions_company(item_text, company_lower) or (
+                bool(name_lower) and name_lower in item_text
+            )
+        return True
 
     @staticmethod
     def _text_mentions_full_name(text: str, name_lower: str) -> bool:

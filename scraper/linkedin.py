@@ -63,7 +63,7 @@ class LinkedInScraper(BaseScraper):
             if engine == "google":
                 items = await self._search_google(query)
             else:
-                items = await self._search_ddg_api(query, company=company)
+                items = await self._search_ddg_api(query, company=company, name=name)
 
             if items:
                 print(f"[LinkedInScraper] Encontrado con: {engine} - {query[:60]}...")
@@ -88,11 +88,13 @@ class LinkedInScraper(BaseScraper):
             return []
         return self._parse_google_results(html)
 
-    async def _search_ddg_api(self, query: str, company: str = "") -> list[ScrapedItem]:
+    async def _search_ddg_api(self, query: str, company: str = "", name: str = "") -> list[ScrapedItem]:
         """Search LinkedIn profiles via ddgs library with company filtering."""
         results = await self._ddg_text_search(query, max_results=8)
         company_lower = company.lower().strip() if company else ""
         company_words = [w for w in company_lower.split() if len(w) > 3] if company_lower else []
+        name_lower = self._strip_accents(name).lower().strip() if name else ""
+        name_words = [w for w in name_lower.split() if len(w) >= 3]
 
         matching = []
         non_matching = []
@@ -116,6 +118,19 @@ class LinkedInScraper(BaseScraper):
                 matching.append(item)
             else:
                 non_matching.append(item)
+
+        # Sin mención de la empresa, un perfil solo es aceptable si trae el
+        # NOMBRE COMPLETO del prospecto. Las queries de fallback acortan el
+        # nombre ("Nadia Ramirez") y DDG devuelve homónimos de otras empresas;
+        # devolverlos contamina educación/ubicación con datos de otra persona.
+        if not matching and name_words:
+            before = len(non_matching)
+            non_matching = [
+                it for it in non_matching
+                if all(w in self._strip_accents(f"{it.title} {it.snippet}").lower() for w in name_words)
+            ]
+            if before and not non_matching:
+                print(f"[LinkedInScraper] {before} perfiles sin empresa ni nombre completo descartados (homónimos)")
 
         items = matching[:3] if matching else non_matching[:2]
         if matching and non_matching:

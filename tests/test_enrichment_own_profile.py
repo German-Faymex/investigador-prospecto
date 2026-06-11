@@ -69,3 +69,89 @@ class TestEnrichmentOwnProfile:
         # La excepción es solo para items del LinkedIn scraper (source=linkedin)
         r = self._run(_nadia_item(source="duckduckgo"))
         assert r.persona.get("educacion", "") == ""
+
+
+class TestIsRelevantItem:
+    """Regresión caso Nadia de California: items de homónimos llegaban al LLM
+    como hechos y contaminaban educación/ubicación del prospecto real."""
+
+    def _svc(self):
+        return ResearchService.__new__(ResearchService)
+
+    def test_homonimo_linkedin_excluido_del_analisis(self):
+        # El caso real: perfil de otra Nadia Ramirez (sin 'Lara', sin empresa)
+        it = ScrapedItem(
+            url="https://www.linkedin.com/in/nadia-r",
+            title="Nadia Ramirez - SEP | LinkedIn",
+            snippet="California State Polytechnic University-Pomona · San Jose",
+            source="linkedin",
+        )
+        assert not self._svc()._is_relevant_item(it, "nadia ramirez lara", "desert king")
+
+    def test_perfil_propio_con_nombre_completo_pasa(self):
+        assert self._svc()._is_relevant_item(_nadia_item(), "nadia ramirez lara", "desert king")
+
+    def test_item_que_menciona_empresa_pasa(self):
+        it = ScrapedItem(
+            url="https://example.com/nota",
+            title="Supervisores de Desert King",
+            snippet="Nadia lidera el equipo de producción",
+            source="duckduckgo",
+        )
+        assert self._svc()._is_relevant_item(it, "nadia ramirez lara", "desert king")
+
+    def test_noticia_irrelevante_excluida(self):
+        it = ScrapedItem(
+            url="https://news.example.com/x",
+            title="Noticias de minería",
+            snippet="Producción de cobre sube en el norte",
+            source="google_news",
+        )
+        assert not self._svc()._is_relevant_item(it, "nadia ramirez lara", "desert king")
+
+    def test_corporate_y_perplexity_pasan_siempre(self):
+        for source in ("corporate", "perplexity_persona", "perplexity_empresa"):
+            it = ScrapedItem(url="https://x.com", title="t", snippet="s", source=source)
+            assert self._svc()._is_relevant_item(it, "nadia ramirez lara", "desert king")
+
+
+class TestLinkedInHomonymFallback:
+    """El fallback con nombre acortado ('Nadia Ramirez') no debe devolver
+    perfiles que no mencionen la empresa NI traigan el nombre completo."""
+
+    def _scraper(self, monkeypatch, results):
+        from scraper.linkedin import LinkedInScraper
+        scraper = LinkedInScraper()
+
+        async def fake(query, max_results=5):
+            return results
+
+        monkeypatch.setattr(scraper, "_ddg_text_search", fake)
+        return scraper
+
+    def test_homonimos_sin_empresa_ni_nombre_completo_descartados(self, monkeypatch):
+        import asyncio
+        scraper = self._scraper(monkeypatch, [
+            {"href": "https://www.linkedin.com/in/n1", "title": "Nadia Ramirez - SEP | LinkedIn", "body": "Mexico"},
+            {"href": "https://www.linkedin.com/in/n2", "title": "Nadia Ramirez - PM | LinkedIn", "body": "San Jose, California"},
+        ])
+        items = asyncio.run(scraper._search_ddg_api("q", company="Desert King", name="Nadia Ramirez Lara"))
+        assert items == []
+
+    def test_nombre_completo_sin_empresa_se_conserva(self, monkeypatch):
+        import asyncio
+        scraper = self._scraper(monkeypatch, [
+            {"href": "https://cl.linkedin.com/in/nadia-rl", "title": "Nadia Ramirez Lara - Ingeniera Industrial | LinkedIn", "body": "Valparaíso"},
+        ])
+        items = asyncio.run(scraper._search_ddg_api("q", company="Desert King", name="Nadia Ramirez Lara"))
+        assert len(items) == 1
+        assert "nadia-rl" in items[0].url
+
+    def test_match_de_empresa_sigue_teniendo_prioridad(self, monkeypatch):
+        import asyncio
+        scraper = self._scraper(monkeypatch, [
+            {"href": "https://www.linkedin.com/in/otra", "title": "Nadia Ramirez Lara - Otra | LinkedIn", "body": "..."},
+            {"href": "https://cl.linkedin.com/in/buena", "title": "Nadia R. - Supervisora | LinkedIn", "body": "Desert King Chile"},
+        ])
+        items = asyncio.run(scraper._search_ddg_api("q", company="Desert King", name="Nadia Ramirez Lara"))
+        assert items[0].url.endswith("/buena")

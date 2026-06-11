@@ -58,6 +58,14 @@
    devuelve la educación en el snippet y LinkedIn bloquea el fetch directo (999),
    el dato simplemente no llega — limitación de fuentes, no bug.
 
+3d. **fix: homónimo contaminando persona (commit pendiente de hash)** — la query
+   de fallback de LinkedIn ("Nadia Ramirez" sin apellido2) traía perfiles de otras
+   personas y el researcher los pasaba al LLM como hechos (los filtros existentes
+   eran solo para UI/enriquecimiento). Ahora: nombre completo obligatorio en el
+   scraper sin match de empresa + `_is_relevant_item()` filtra antes del LLM.
+   PRINCIPIO para futuras sesiones: lo que no pasaría el filtro de la UI tampoco
+   debe llegar al LLM.
+
 ## Datos operativos (verificados hoy)
 - Railway: proyecto "Investigador Prospecto", servicio "Investigador Prospecto"
 - Prod: https://web-production-72452.up.railway.app (auto-deploy desde push a main, ~2 min)
