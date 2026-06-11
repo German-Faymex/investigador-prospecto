@@ -14,6 +14,34 @@ class CorporateSiteScraper(BaseScraper):
     # Dominio encontrado, accesible para el researcher
     discovered_domain: str | None = None
 
+    # Sufijos societarios y palabras sin valor identificatorio
+    _CORP_SUFFIXES = {
+        "spa", "ltda", "inc", "corp", "llc", "srl", "cia",
+        "compania", "compañia", "del", "los", "las", "the", "and",
+        "group", "grupo", "holding",
+    }
+
+    @staticmethod
+    def _domain_matches_company(netloc: str, company: str) -> bool:
+        """True si el dominio parece pertenecer a la empresa buscada.
+
+        Compara el nombre completo concatenado y cada palabra significativa
+        del nombre contra el host. Evita aceptar dominios de terceros que
+        aparecen en buscadores por noticias sobre la empresa (ej: el proveedor
+        metso.com rankea para 'Noracid' porque construyó su planta).
+        """
+        host = netloc.lower()
+        if host.startswith("www."):
+            host = host[4:]
+        full = re.sub(r"[^a-z0-9]", "", company.lower())
+        words = [re.sub(r"[^a-z0-9]", "", w.lower()) for w in company.split()]
+        words = [
+            w for w in words
+            if len(w) >= 3 and w not in CorporateSiteScraper._CORP_SUFFIXES
+        ]
+        candidates = ([full] if len(full) >= 3 else []) + words
+        return any(c in host for c in candidates)
+
     async def search(self, name: str, company: str, role: str = "", location: str = "") -> list[ScrapedItem]:
         items = []
 
@@ -31,6 +59,22 @@ class CorporateSiteScraper(BaseScraper):
             items.extend(corp_items)
 
         return items[:self.settings.scraper.max_results_per_source]
+
+    async def _fetch_html(self, url: str) -> str | None:
+        """Request HTTP con fallback a TLS impersonation.
+
+        Algunos sitios corporativos (ej: noracid.cl) bloquean con 403 el
+        cliente plano, sobre todo desde IPs de datacenter como Railway.
+        """
+        html = await self._make_request(url)
+        if html:
+            return html
+        from scraper.tls_client import tls_fetch
+        status, html = await tls_fetch(url, timeout=8)
+        if status == 200 and html:
+            print(f"[CorporateSiteScraper] {url} recuperado via TLS impersonation")
+            return html
+        return None
 
     async def _guess_company_domain(self, company: str) -> str | None:
         """Intentar adivinar el dominio probando TLDs comunes.
@@ -57,7 +101,7 @@ class CorporateSiteScraper(BaseScraper):
 
         async def try_url(url):
             try:
-                html = await self._make_request(url)
+                html = await self._fetch_html(url)
                 if not html or len(html) < 500:
                     return None
 
@@ -130,8 +174,16 @@ class CorporateSiteScraper(BaseScraper):
             if not url or not url.startswith("http"):
                 continue
             parsed = urlparse(url)
-            if not any(s in parsed.netloc for s in skip):
-                return f"{parsed.scheme}://{parsed.netloc}"
+            if any(s in parsed.netloc for s in skip):
+                continue
+            # CRÍTICO: validar que el dominio corresponda a la empresa buscada.
+            # Los buscadores rankean noticias de terceros (proveedores, prensa)
+            # para empresas con poca presencia web; sin esta validación se
+            # scrapea el sitio de OTRA empresa como si fuera el corporativo.
+            if not self._domain_matches_company(parsed.netloc, company):
+                print(f"[CorporateSiteScraper] {parsed.netloc} descartado (dominio no coincide con '{company}')")
+                continue
+            return f"{parsed.scheme}://{parsed.netloc}"
 
         return None
 
@@ -142,7 +194,7 @@ class CorporateSiteScraper(BaseScraper):
 
         # 1. Scrape homepage
         homepage_url = domain + "/"
-        html = await self._make_request(homepage_url)
+        html = await self._fetch_html(homepage_url)
         if not html:
             return items
 
@@ -169,7 +221,7 @@ class CorporateSiteScraper(BaseScraper):
 
         # 2. Scrape links internos en paralelo (máx 4 para velocidad)
         async def scrape_url(url):
-            page_html = await self._make_request(url)
+            page_html = await self._fetch_html(url)
             if not page_html:
                 return None
             page_soup = BeautifulSoup(page_html, "html.parser")

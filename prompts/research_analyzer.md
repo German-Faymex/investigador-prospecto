@@ -37,7 +37,7 @@ Responde ÚNICAMENTE con un JSON válido (sin markdown, sin texto adicional):
     "competidores": ["Principales competidores de esta empresa"],
     "ubicacion": "Sede principal y operaciones relevantes",
     "presencia": "Presencia geográfica/mercados donde opera",
-    "sitio_web": "URL del sitio web corporativo si fue proporcionada"
+    "sitio_web": "SOLO la URL indicada en 'Sitio web corporativo' de los datos. NUNCA uses el dominio de una noticia, un proveedor o un tercero que mencione a la empresa. Si no fue proporcionada, deja vacío"
   },
   "hallazgos": [
     {

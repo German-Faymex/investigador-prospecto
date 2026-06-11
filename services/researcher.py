@@ -110,6 +110,9 @@ class ResearchService:
                         # Enriquecer campos vacíos con datos de Perplexity y LinkedIn
                         self._enrich_from_perplexity(result)
                         self._enrich_from_scraped_items(result, items)
+                        # Descartar sitios web de terceros (proveedores, prensa)
+                        # que el LLM o Perplexity hayan tomado de los datos
+                        self._sanitize_sitio_web(result, company, corporate_domain)
                         # Cargo: el usuario siempre sabe mejor su cargo actual.
                         # Si lo proporcionó, prevalece sobre lo que el LLM descubrió
                         # (que puede estar contaminado por company pages o perfiles homónimos).
@@ -576,6 +579,30 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
                 continue
             filtered.append(h)
         return filtered
+
+    @staticmethod
+    def _sanitize_sitio_web(result: ResearchResult, company: str, corporate_domain: Optional[str]):
+        """Descartar sitio_web si su dominio no corresponde a la empresa.
+
+        El LLM puede tomar el dominio de una noticia o un proveedor que aparece
+        en los datos scrapeados (ej: metso.com al investigar Noracid, porque
+        Metso construyó su planta). El dominio descubierto y validado por
+        CorporateSiteScraper es autoritativo; sin él, el dominio debe contener
+        el nombre de la empresa. Mejor campo vacío que el sitio de otra empresa.
+        """
+        from urllib.parse import urlparse
+        from scraper.corporate_site import CorporateSiteScraper
+
+        sitio = (result.empresa.get("sitio_web") or "").strip()
+        if sitio:
+            netloc = urlparse(sitio if "://" in sitio else f"https://{sitio}").netloc
+            corp_netloc = urlparse(corporate_domain).netloc if corporate_domain else ""
+            same_as_corp = bool(corp_netloc) and netloc.replace("www.", "") == corp_netloc.replace("www.", "")
+            if not same_as_corp and not CorporateSiteScraper._domain_matches_company(netloc, company):
+                print(f"[Research] sitio_web descartado (dominio de tercero): {sitio}")
+                result.empresa["sitio_web"] = ""
+        if corporate_domain and not result.empresa.get("sitio_web"):
+            result.empresa["sitio_web"] = corporate_domain
 
     @staticmethod
     def _fill_if_empty(d: dict, key: str, value: str):
