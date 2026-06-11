@@ -2,10 +2,21 @@
 
 ## Última actualización: 2026-06-11
 
-## Estado actual
-- Tarea actual: Completada — fix crítico sitio corporativo equivocado (Noracid/Metso)
-- Branch activo: main
-- Último commit: d0cad88 (deployado y verificado en producción)
+## Estado actual — SESIÓN CERRADA (11 jun 2026)
+- Branch activo: main, working tree limpio
+- Último commit: 941ce56 (deployado y verificado en producción)
+- 81 tests pasando; CHANGELOG en v1.5.0 (entradas 1, 1b, 1c, 1d, 1e, 2, 3, 4)
+- Nada quedó a medias: todos los fixes de la sesión están commiteados,
+  pusheados, deployados a Railway y verificados E2E contra producción
+
+## Resumen ejecutivo de la sesión
+Sesión de confiabilidad: se cerraron 1 bug de infraestructura (modelo LLM
+retirado), 1 clase de pérdida de datos (JSON por regex) y 5 vectores de
+contaminación por homónimos (empresa equivocada x2, persona equivocada x3),
+todos reportados/detectados el mismo día. Además: logo Faymex + panel de ayuda.
+Hilo conductor: las heurísticas de texto no resuelven identidad — el patrón
+ganador fue validar con el LLM (sitio_web_corresponde) y filtrar ANTES del
+LLM con las mismas reglas que la UI (_is_relevant_item).
 
 ## Sesión 11 jun 2026 — confiabilidad LLM + fix crítico de dominio corporativo
 1. **fix: modelo Haiku retirado** — `claude-3-5-haiku-20241022` fue retirado el 19-feb-2026
@@ -58,7 +69,7 @@
    devuelve la educación en el snippet y LinkedIn bloquea el fetch directo (999),
    el dato simplemente no llega — limitación de fuentes, no bug.
 
-3d. **fix: homónimo contaminando persona (commit pendiente de hash)** — la query
+3d. **fix: homónimo contaminando persona (commit 0c001ed)** — la query
    de fallback de LinkedIn ("Nadia Ramirez" sin apellido2) traía perfiles de otras
    personas y el researcher los pasaba al LLM como hechos (los filtros existentes
    eran solo para UI/enriquecimiento). Ahora: nombre completo obligatorio en el
@@ -66,7 +77,7 @@
    PRINCIPIO para futuras sesiones: lo que no pasaría el filtro de la UI tampoco
    debe llegar al LLM.
 
-3e. **fix: homónimo vía Perplexity** — enriquecimiento reordenado (LinkedIn
+3e. **fix: homónimo vía Perplexity (commit 941ce56)** — enriquecimiento reordenado (LinkedIn
    validado primero) + gate: persona de Perplexity descartada si no menciona la
    empresa. NOTA: la completitud de educación/ubicación sigue dependiendo del
    snippet DDG de cada corrida (no-determinístico); lo garantizado ahora es que
@@ -78,6 +89,14 @@
 - Estado de fuentes desde Railway: Perplexity OK, corporate OK (ahora con TLS),
   DDG News OK, LinkedIn TLS casi siempre 999 (solo snippets), Google Search 0 items
 - API keys local (.env): DeepSeek, Anthropic y Perplexity presentes
+
+## Próximos pasos al retomar
+1. Leer este archivo + `git log --oneline -10` (protocolo estándar).
+2. La mejora #1 del backlog (resolución de entidades con LLM) es la candidata
+   natural: generaliza los 5 fixes de homónimos de hoy a un solo mecanismo.
+3. Decisión pendiente de Germán (negocio, no técnica): proxy residencial para
+   leer perfiles LinkedIn directo (costo mensual) — único camino para que
+   educación/ubicación dejen de depender del snippet DDG de turno.
 
 ## Mejoras pendientes propuestas (auditoría 11 jun, en orden)
 1. Resolución de entidades con LLM antes del análisis (reemplaza los filtros regex
