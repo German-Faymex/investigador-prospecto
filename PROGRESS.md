@@ -43,6 +43,13 @@
    (logs: "6 citations reales obtenidas"). Matiz: su aporte suele ser invisible en la UI
    porque llena campos del perfil vía _enrich_from_perplexity sin dejar items visibles.
 
+3b. **fix complementario: dominio homónimo (caso "Ely Diaz @ abc", commit 0cabf84)** —
+   abc.com pasa la validación por nombre pero es ABC Network. La validación
+   heurística no puede distinguir homónimos de dominio; el veredicto ahora lo da
+   el LLM vía `empresa.sitio_web_corresponde` (boolean en el schema) y
+   `_sanitize_sitio_web` lo aplica (descarta + no rellena). Verificado E2E local
+   (sitio_web vacío en vez de abc.com) y en producción.
+
 ## Datos operativos (verificados hoy)
 - Railway: proyecto "Investigador Prospecto", servicio "Investigador Prospecto"
 - Prod: https://web-production-72452.up.railway.app (auto-deploy desde push a main, ~2 min)

@@ -128,3 +128,22 @@ class TestSitioWebHomonimo:
         r = self._result("https://www.empresasabc.cl", corresponde=False)
         ResearchService._sanitize_sitio_web(r, "abc", "https://www.abc.com")
         assert r.empresa["sitio_web"] == "https://www.empresasabc.cl"
+
+    def test_veto_remueve_fuentes_del_dominio(self):
+        r = self._result("", corresponde=False)
+        r.raw_sources = [
+            {"url": "https://www.abc.com/shows", "title": "ABC", "source": "corporate"},
+            {"url": "https://abc.com/news", "title": "ABC News", "source": "corporate"},
+            {"url": "https://cl.linkedin.com/in/ely", "title": "LinkedIn", "source": "linkedin"},
+        ]
+        ResearchService._sanitize_sitio_web(r, "abc", "https://www.abc.com")
+        urls = [s["url"] for s in r.raw_sources]
+        assert urls == ["https://cl.linkedin.com/in/ely"]
+
+    def test_sin_veto_conserva_fuentes(self):
+        r = self._result("https://www.abc.com", corresponde=True)
+        r.raw_sources = [
+            {"url": "https://www.abc.com/about", "title": "ABC", "source": "corporate"},
+        ]
+        ResearchService._sanitize_sitio_web(r, "abc", "https://www.abc.com")
+        assert len(r.raw_sources) == 1

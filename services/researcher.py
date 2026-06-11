@@ -624,6 +624,15 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
         # Rellenar con el dominio descubierto solo si el LLM no lo vetó
         if corporate_domain and corresponde is not False and not result.empresa.get("sitio_web"):
             result.empresa["sitio_web"] = corporate_domain
+        # Si el dominio fue vetado, sus páginas tampoco deben listarse como fuentes
+        if corresponde is False and corp_netloc:
+            before = len(result.raw_sources)
+            result.raw_sources = [
+                s for s in result.raw_sources if _netloc(s.get("url", "")) != corp_netloc
+            ]
+            removed = before - len(result.raw_sources)
+            if removed:
+                print(f"[Research] {removed} fuentes del dominio vetado removidas ({corp_netloc})")
 
     @staticmethod
     def _fill_if_empty(d: dict, key: str, value: str):

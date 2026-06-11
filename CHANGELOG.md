@@ -13,6 +13,14 @@
 - 13 tests de regresión nuevos en `tests/test_domain_validation.py`
 - Archivos: `scraper/corporate_site.py`, `services/researcher.py`, `prompts/research_analyzer.md`
 
+**1b. Fix complementario: dominio HOMÓNIMO (caso abc/ABC Network)**
+- Segundo vector, reportado el mismo día: para la empresa 'abc', el dominio descubierto abc.com pasa la validación por nombre (el nombre SÍ está en el dominio) pero pertenece a ABC Network (cadena de TV). El LLM detectaba el mismatch en un hallazgo pero no tenía canal para actuar
+- Nuevo campo de control `empresa.sitio_web_corresponde` (boolean) en `RESEARCH_SCHEMA`: el LLM evalúa si el dominio descubierto automáticamente corresponde a la empresa del prospecto (industria/país/contexto vs. las demás fuentes)
+- `_sanitize_sitio_web()` respeta el veredicto: descarta el dominio y no lo rellena cuando `corresponde=false`; el flag nunca llega a la UI ni al email
+- Si el flag falta (DeepSeek en modo json_object puede omitirlo), se asume válido
+- 6 tests nuevos (61 total)
+- Archivos: `services/schemas.py`, `services/researcher.py`, `prompts/research_analyzer.md`
+
 **2. JSON garantizado en respuestas LLM (structured outputs)**
 - Antes el JSON se extraía con regex; un parseo fallido perdía toda la investigación ya pagada
 - `services/schemas.py` (nuevo): `RESEARCH_SCHEMA` y `EMAIL_SCHEMA` en JSON Schema
