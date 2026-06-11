@@ -1,5 +1,45 @@
 # Changelog
 
+## [1.5.0] - 2026-06-11
+
+### Confiabilidad: sitio corporativo correcto, JSON garantizado, fallback LLM reparado
+
+**1. Fix crítico: sitio web de OTRA empresa mostrado como corporativo (caso Noracid/Metso)**
+- **Síntoma**: al investigar un prospecto de Noracid, la UI mostraba metso.com (proveedor de su planta) como sitio de la empresa, y se scrapeaba el sitio de Metso como fuente "corporate"
+- **Causa raíz**: cuando el sitio real bloquea con 403 (noracid.cl bloquea clientes no-navegador), el fallback DDG (`"empresa" sitio web oficial`) aceptaba el primer resultado no-red-social **sin validación**
+- **Fix capa 1**: `_find_domain_via_ddg()` exige que el nombre de la empresa aparezca en el dominio candidato (`_domain_matches_company()`); mejor sin dominio que con el de un tercero
+- **Fix capa 2**: todas las descargas del sitio corporativo (`_fetch_html()`) reintentan con TLS impersonation (reutiliza `tls_client` de LinkedIn) → noracid.cl ahora responde y sus páginas se scrapean
+- **Fix capa 3**: `ResearchService._sanitize_sitio_web()` descarta cualquier `sitio_web` final cuyo dominio no coincida con el descubierto ni con el nombre de la empresa (cubre LLM y Perplexity); regla explícita anti-terceros en el prompt
+- 13 tests de regresión nuevos en `tests/test_domain_validation.py`
+- Archivos: `scraper/corporate_site.py`, `services/researcher.py`, `prompts/research_analyzer.md`
+
+**2. JSON garantizado en respuestas LLM (structured outputs)**
+- Antes el JSON se extraía con regex; un parseo fallido perdía toda la investigación ya pagada
+- `services/schemas.py` (nuevo): `RESEARCH_SCHEMA` y `EMAIL_SCHEMA` en JSON Schema
+- `LLMClient.complete(..., json_schema=)`: DeepSeek usa `response_format: json_object` (JSON válido garantizado); Haiku usa structured outputs (`output_config.format`, validación contra esquema)
+- Prompt `research_analyzer.md` alineado al esquema (`tamano_empleados`, `noticias_recientes` como lista)
+- El parseo regex queda como red de seguridad
+- Archivos: `services/llm_client.py`, `services/schemas.py`, `services/researcher.py`, `services/email_generator.py`
+
+**3. Fix: fallback a Haiku roto por modelo retirado**
+- `claude-3-5-haiku-20241022` fue retirado el 19-feb-2026 y devolvía 404: cuando DeepSeek fallaba, el sistema entero fallaba en silencio en vez de usar el respaldo
+- Reemplazado por `claude-haiku-4-5` en `config/settings.py`; verificado con llamada real
+
+**4. UX: logo Faymex + ayuda integrada**
+- Logo horizontal oficial (blanco) en el navbar
+- Panel plegable "¿Cómo se usa y cómo funciona?" sobre el formulario: guía de 3 pasos + explicación de fuentes, score, tipos de hallazgo (A–D) y metodología SMTYKM
+- Archivos: `webapp/templates/base.html`, `webapp/templates/index.html`, `webapp/static/img/logo-faymex-blanco.png`
+
+## [1.4.0] - 2026-03-23
+
+### LinkedIn Deep Scraper + anti-contaminación (documentado retroactivamente; detalle en PROGRESS.md)
+
+- **TLS fingerprint impersonation** (`scraper/tls_client.py`, curl_cffi): fetch directo de perfiles públicos de LinkedIn impersonando browsers reales (Chrome/Firefox/Safari/Edge), con retry de 3 perfiles ante authwall. Limitación: desde datacenter (Railway) la mayoría de perfiles devuelve 999
+- **Anti-contaminación de company pages**: facts de `linkedin.com/company` se anotan con warning, se excluyen del enriquecimiento, y regla 8b en el prompt
+- **Cargo del usuario prevalece** siempre sobre lo descubierto; filtro de hallazgos con cargo contradictorio
+- **Fix Starlette 0.46+**: nueva API de `TemplateResponse`
+- Endpoint JSON `/api/research/json` para consumidores externos
+
 ## [1.3.0] - 2026-02-20
 
 ### Calidad de datos: anti-homónimos, fuentes limpias, cargo confiable

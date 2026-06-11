@@ -3,10 +3,11 @@
 ## Última actualización: 2026-06-11
 
 ## Estado actual
-- Tarea actual: Completada — JSON garantizado en respuestas LLM (structured outputs)
+- Tarea actual: Completada — fix crítico sitio corporativo equivocado (Noracid/Metso)
 - Branch activo: main
+- Último commit: d0cad88 (deployado y verificado en producción)
 
-## Sesión 11 jun 2026 — fixes de confiabilidad LLM
+## Sesión 11 jun 2026 — confiabilidad LLM + fix crítico de dominio corporativo
 1. **fix: modelo Haiku retirado** — `claude-3-5-haiku-20241022` fue retirado el 19-feb-2026
    y devolvía 404: el fallback cuando DeepSeek fallaba estaba roto en silencio.
    Reemplazado por `claude-haiku-4-5` en `config/settings.py`. Verificado con llamada real.
@@ -21,9 +22,38 @@
    - `_parse_llm_response` queda como red de seguridad.
    Verificado con llamadas reales a ambos proveedores + 42 tests pasando.
 
+3. **fix crítico: sitio web de OTRA empresa** (caso reportado por Germán con captura) —
+   investigando "Elio Barraza @ Noracid" la UI mostraba metso.com como sitio corporativo.
+   Cadena del bug: noracid.cl responde 403 a clientes no-navegador → `_guess_company_domain`
+   falla → fallback `_find_domain_via_ddg("Noracid sitio web oficial")` tomaba el PRIMER
+   resultado no-red-social sin validar → metso.com (construyó la planta de Noracid, domina
+   esa búsqueda) → se scrapeó el sitio de Metso como "corporate" y quedó en sitio_web.
+   Fix en 3 capas (commit d0cad88):
+   - `_domain_matches_company()`: el fallback DDG exige nombre de empresa en el dominio
+   - `_fetch_html()`: todo fetch del sitio corporativo reintenta con TLS impersonation
+     (noracid.cl ahora se scrapea: 3 páginas reales, score 85 local / 80 prod)
+   - `_sanitize_sitio_web()` en researcher: descarta dominio de tercero aunque venga
+     del LLM o Perplexity + regla anti-terceros en prompt
+   13 tests de regresión (`tests/test_domain_validation.py`), 55 total.
+   Verificado E2E local Y en producción post-deploy (sitio_web=noracid.cl, 0 URLs metso).
+4. **ux: logo Faymex + ayuda** — logo blanco oficial en navbar (asset de Oportunidades
+   Dashboard) + panel plegable "¿Cómo se usa y cómo funciona?" en index. Verificado con
+   Playwright local y logo sirviendo 200 en prod.
+5. **Verificación Perplexity** (pregunta de Germán): SÍ está activo local y en prod
+   (logs: "6 citations reales obtenidas"). Matiz: su aporte suele ser invisible en la UI
+   porque llena campos del perfil vía _enrich_from_perplexity sin dejar items visibles.
+
+## Datos operativos (verificados hoy)
+- Railway: proyecto "Investigador Prospecto", servicio "Investigador Prospecto"
+- Prod: https://web-production-72452.up.railway.app (auto-deploy desde push a main, ~2 min)
+- Estado de fuentes desde Railway: Perplexity OK, corporate OK (ahora con TLS),
+  DDG News OK, LinkedIn TLS casi siempre 999 (solo snippets), Google Search 0 items
+- API keys local (.env): DeepSeek, Anthropic y Perplexity presentes
+
 ## Mejoras pendientes propuestas (auditoría 11 jun, en orden)
 1. Resolución de entidades con LLM antes del análisis (reemplaza los filtros regex
    anti-homónimos/company-pages, la fuente principal de errores de atribución).
+   El caso Noracid/Metso de hoy es el mismo patrón generalizado a todas las fuentes.
 2. Verifier: deduplicar por dominio antes de contar "diversidad de fuentes"
    (Google+DDG con la misma URL no son 2 fuentes).
 3. Desactivar scraping LinkedIn TLS en producción (999 desde Railway) o evaluar
@@ -31,6 +61,8 @@
 4. Persistencia (SQLite): caché por empresa, historial, feedback de emails.
 5. Score determinístico en código (hoy lo asigna el LLM).
 6. `_fix_email_closing` asume "Quedo atento," (falla con remitente mujer).
+7. Mostrar las citations de Perplexity como fuentes visibles en la UI (hoy su
+   aporte es invisible y genera la impresión de que no se usa).
 
 ---
 

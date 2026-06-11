@@ -81,8 +81,11 @@ uvicorn webapp.app:app --reload --port 8000
 ## Patrones clave
 
 - **Scrapers async**: Todos los scrapers heredan de `BaseScraper` y usan httpx async para paralelismo. Signature estándar: `search(name, company, role="", location="")`
-- **LLM híbrido**: DeepSeek para análisis principal, Haiku como fallback
+- **LLM híbrido**: DeepSeek (`deepseek-chat`) para análisis principal, Haiku (`claude-haiku-4-5`) como fallback. OJO: si Anthropic retira el modelo pinneado, el fallback falla en silencio con 404 — pasó con `claude-3-5-haiku-20241022` (retirado feb-2026)
+- **JSON garantizado**: `LLMClient.complete(..., json_schema=...)` con esquemas de `services/schemas.py`. DeepSeek → `response_format: json_object`; Haiku → structured outputs (`output_config.format`). El parseo regex de `_parse_llm_response` queda solo como red de seguridad
 - **Sistema de verificación**: Score de calidad (0-100) basado en cruce de fuentes
+- **Dominio corporativo validado**: el fallback DDG de `CorporateSiteScraper` exige que el nombre de la empresa aparezca en el dominio (`_domain_matches_company`) — sin esto se scrapea el sitio de un tercero que rankea por noticias (caso Noracid→metso.com). `_sanitize_sitio_web()` en researcher es la red de seguridad final
+- **TLS impersonation como fallback HTTP**: `_fetch_html()` del corporate scraper y el LinkedIn scraper reintentan con `scraper/tls_client.py` (curl_cffi) cuando el cliente plano recibe 403/bloqueo. Funciona para sitios corporativos; para LinkedIn desde datacenter casi siempre devuelve 999 igual
 - **Config singleton**: `from config.settings import get_settings`
 - **LinkedIn search URL**: Se genera siempre una URL de búsqueda en LinkedIn (no perfil directo) via `LinkedInScraper.build_search_url()`
 - **Match geográfico**: El campo `location` fluye desde formulario → router → orchestrator → scrapers → LLM prompts → email generator
@@ -90,9 +93,13 @@ uvicorn webapp.app:app --reload --port 8000
 
 ## Deploy (Railway)
 
-- Auto-deploy desde branch `main`
+- Auto-deploy desde branch `main` (~2 min tras el push)
+- Proyecto y servicio Railway: `Investigador Prospecto` (cuenta `german-faymex`)
+- Producción: https://web-production-72452.up.railway.app
 - El `Procfile` define el comando de inicio
 - Variables de entorno configuradas en Railway dashboard
+- Verificar deploy: `railway status --json` expone `latestDeployment.status` y el commit; logs con `railway logs --service "Investigador Prospecto"`
+- Verificación E2E rápida contra prod: `POST /api/research/json` con `{name, company, role, location}`
 
 ---
 
