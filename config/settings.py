@@ -13,7 +13,7 @@ class LLMConfig:
     deepseek_api_key: str
     anthropic_api_key: str
     deepseek_model: str = "deepseek-chat"
-    haiku_model: str = "claude-3-5-haiku-20241022"
+    haiku_model: str = "claude-haiku-4-5"
 
 
 @dataclass
