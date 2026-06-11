@@ -21,6 +21,13 @@
 - 6 tests nuevos (61 total)
 - Archivos: `services/schemas.py`, `services/researcher.py`, `prompts/research_analyzer.md`
 
+**1c. Fix: el filtro anti-homónimos descartaba el perfil de la PROPIA persona (caso Nadia)**
+- **Síntoma**: educación y ubicación "No disponible" aunque el perfil de LinkedIn las tiene
+- **Causa**: el snippet de DDG a veces no menciona la empresa (el headline de la persona no la incluye) y el filtro anti-homónimos exigía esa mención → descartaba el perfil seleccionado por el LinkedIn scraper, perdiendo educación/ubicación. No-determinístico: dependía del snippet que DDG devolviera en cada corrida
+- **Fix**: excepción `_text_mentions_full_name()` — el item del LinkedIn scraper (búsqueda ya acotada por empresa) se conserva si trae el nombre completo del prospecto, en enriquecimiento y en fuentes visibles. Homónimos con otro nombre siguen descartados
+- 7 tests nuevos en `tests/test_enrichment_own_profile.py` (70 total)
+- Archivos: `services/researcher.py`
+
 **2. JSON garantizado en respuestas LLM (structured outputs)**
 - Antes el JSON se extraía con regex; un parseo fallido perdía toda la investigación ya pagada
 - `services/schemas.py` (nuevo): `RESEARCH_SCHEMA` y `EMAIL_SCHEMA` en JSON Schema

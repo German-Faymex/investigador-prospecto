@@ -74,7 +74,12 @@ class ResearchService:
                     # This prevents homonym contamination (other people with same name).
                     if it.source in ("duckduckgo", "google_search", "linkedin"):
                         is_company_site = company_lower.replace(" ", "") in url_lower.replace(" ", "")
-                        if not is_company_site and not self._text_mentions_company(item_text, company_lower):
+                        # Excepción: el item del LinkedIn scraper viene de una búsqueda
+                        # ya acotada por empresa y es su perfil seleccionado; el snippet
+                        # DDG a veces trunca la mención de la empresa. Si trae el nombre
+                        # completo del prospecto, se conserva.
+                        is_own_profile = it.source == "linkedin" and self._text_mentions_full_name(item_text, name_lower)
+                        if not is_company_site and not is_own_profile and not self._text_mentions_company(item_text, company_lower):
                             continue
                     # Filter news results: only keep if they mention the company or person
                     if it.source in ("duckduckgo_news", "google_news"):
@@ -387,6 +392,7 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
         """
         company = result.empresa.get("nombre", "")
         company_lower = company.lower().strip()
+        name_lower = (result.persona.get("nombre") or "").lower().strip()
 
         # Recopilar texto SOLO de items que correspondan a la empresa correcta
         # EXCLUIR company pages que listan cargos de otros empleados
@@ -403,9 +409,15 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
             if "linkedin.com/company" in item.url or "linkedin.com/posts" in item.url:
                 print(f"[Research] Excluyendo company/post page de enriquecimiento: {item.url[:60]}")
                 continue
-            # Filtrar: solo usar si el item menciona la empresa del prospecto
+            # Filtrar: solo usar si el item menciona la empresa del prospecto.
+            # Excepción: el perfil seleccionado por el LinkedIn scraper (búsqueda
+            # ya acotada por empresa) con el nombre completo del prospecto — el
+            # snippet DDG a veces trunca la mención de la empresa y sin esta
+            # excepción se descarta el perfil de la propia persona (y con él
+            # su educación/ubicación).
             item_text = f"{item.title} {item.snippet}".lower()
-            if company_lower and not self._text_mentions_company(item_text, company_lower):
+            is_own_profile = item.source == "linkedin" and self._text_mentions_full_name(item_text, name_lower)
+            if company_lower and not is_own_profile and not self._text_mentions_company(item_text, company_lower):
                 print(f"[Research] Descartando LinkedIn item (empresa no coincide): {item.title[:60]}...")
                 continue
             linkedin_texts.append(f"{item.title} {item.snippet}")
@@ -545,6 +557,16 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
             best = max(headlines, key=len)
             return best
         return ""
+
+    @staticmethod
+    def _text_mentions_full_name(text: str, name_lower: str) -> bool:
+        """True si el texto contiene TODAS las palabras significativas del nombre.
+
+        Mucho más específico que el match de empresa: exige nombre y apellidos
+        completos, en cualquier orden.
+        """
+        parts = [w for w in name_lower.split() if len(w) >= 3]
+        return bool(parts) and all(p in text for p in parts)
 
     @staticmethod
     def _text_mentions_company(text: str, company_lower: str) -> bool:

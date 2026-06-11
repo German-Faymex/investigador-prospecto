@@ -50,6 +50,14 @@
    `_sanitize_sitio_web` lo aplica (descarta + no rellena). Verificado E2E local
    (sitio_web vacío en vez de abc.com) y en producción.
 
+3c. **fix: educación/ubicación perdidas por filtro anti-homónimos (caso "Nadia
+   Ramirez Lara @ Desert King")** — el snippet DDG del perfil propio no siempre
+   menciona la empresa; el filtro lo descartaba y con él educación/ubicación.
+   Excepción por nombre completo (`_text_mentions_full_name`) para items del
+   LinkedIn scraper. OJO: los snippets DDG son no-determinísticos; si DDG no
+   devuelve la educación en el snippet y LinkedIn bloquea el fetch directo (999),
+   el dato simplemente no llega — limitación de fuentes, no bug.
+
 ## Datos operativos (verificados hoy)
 - Railway: proyecto "Investigador Prospecto", servicio "Investigador Prospecto"
 - Prod: https://web-production-72452.up.railway.app (auto-deploy desde push a main, ~2 min)
