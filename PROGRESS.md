@@ -66,6 +66,12 @@
    PRINCIPIO para futuras sesiones: lo que no pasaría el filtro de la UI tampoco
    debe llegar al LLM.
 
+3e. **fix: homónimo vía Perplexity** — enriquecimiento reordenado (LinkedIn
+   validado primero) + gate: persona de Perplexity descartada si no menciona la
+   empresa. NOTA: la completitud de educación/ubicación sigue dependiendo del
+   snippet DDG de cada corrida (no-determinístico); lo garantizado ahora es que
+   NO se muestran datos de otra persona.
+
 ## Datos operativos (verificados hoy)
 - Railway: proyecto "Investigador Prospecto", servicio "Investigador Prospecto"
 - Prod: https://web-production-72452.up.railway.app (auto-deploy desde push a main, ~2 min)

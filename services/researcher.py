@@ -128,9 +128,13 @@ class ResearchService:
                         # Asegurar que sitio_web viene del dominio descubierto
                         if corporate_domain and not result.empresa.get("sitio_web"):
                             result.empresa["sitio_web"] = corporate_domain
-                        # Enriquecer campos vacíos con datos de Perplexity y LinkedIn
-                        self._enrich_from_perplexity(result)
+                        # Enriquecer campos vacíos: PRIMERO el perfil LinkedIn
+                        # validado (búsqueda acotada por empresa), luego Perplexity
+                        # para lo que falte. Al revés, una persona homónima de
+                        # Perplexity llenaba ubicación/educación y bloqueaba el
+                        # dato correcto del perfil real (_fill solo llena vacíos).
                         self._enrich_from_scraped_items(result, items)
+                        self._enrich_from_perplexity(result)
                         # Descartar sitios web de terceros (proveedores, prensa)
                         # que el LLM o Perplexity hayan tomado de los datos
                         self._sanitize_sitio_web(result, company, corporate_domain)
@@ -349,6 +353,18 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
         # Mapeo de campos Perplexity → campos del resultado
         pplx_persona = pplx_data.get("persona", {})
         pplx_empresa = pplx_data.get("empresa", {})
+
+        # Anti-homónimos: solo usar la persona de Perplexity si sus datos
+        # mencionan a la empresa del prospecto (empresa_actual/trayectoria).
+        # Perplexity tiene reglas anti-homónimo en su prompt pero a veces trae
+        # a otra persona con el mismo nombre (ej: una Nadia Ramirez Lara de
+        # Mexicali al investigar a la de Desert King Chile).
+        company_lower = result.empresa.get("nombre", "").lower().strip()
+        if company_lower and pplx_persona:
+            persona_text = " ".join(str(v) for v in pplx_persona.values() if v).lower()
+            if not self._text_mentions_company(persona_text, company_lower):
+                print("[Research] Persona de Perplexity descartada (no menciona la empresa — posible homónimo)")
+                pplx_persona = {}
 
         # Enriquecer persona
         persona = result.persona

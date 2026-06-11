@@ -35,6 +35,13 @@
 - 8 tests nuevos (78 total)
 - Archivos: `scraper/linkedin.py`, `services/researcher.py`
 
+**1e. Fix: persona homónima vía Perplexity (Nadia de Mexicali)**
+- **Síntoma**: con la educación ya corregida, la ubicación trajo a una TERCERA persona ("Mexicali, Baja California, México")
+- **Causa**: Perplexity devolvió una persona homónima y su enriquecimiento corría ANTES que el del perfil LinkedIn validado; como `_fill_if_empty` solo llena vacíos, el dato del homónimo bloqueaba al correcto
+- **Fix**: (a) orden invertido — primero el perfil LinkedIn validado, Perplexity solo rellena vacíos; (b) gate anti-homónimos — la persona de Perplexity se descarta si sus datos no mencionan a la empresa del prospecto (la info de empresa se conserva)
+- 3 tests nuevos (81 total)
+- Archivos: `services/researcher.py`
+
 **2. JSON garantizado en respuestas LLM (structured outputs)**
 - Antes el JSON se extraía con regex; un parseo fallido perdía toda la investigación ya pagada
 - `services/schemas.py` (nuevo): `RESEARCH_SCHEMA` y `EMAIL_SCHEMA` en JSON Schema

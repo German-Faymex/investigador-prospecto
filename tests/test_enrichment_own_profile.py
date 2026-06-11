@@ -115,6 +115,66 @@ class TestIsRelevantItem:
             assert self._svc()._is_relevant_item(it, "nadia ramirez lara", "desert king")
 
 
+class TestPerplexityHomonymGate:
+    """Regresión Nadia de Mexicali: Perplexity traía a otra persona con el
+    mismo nombre y, al correr antes que el enriquecimiento de LinkedIn,
+    llenaba ubicación/educación con datos del homónimo."""
+
+    def _svc_with_pplx(self, persona: dict):
+        svc = ResearchService.__new__(ResearchService)
+
+        class FakePplx:
+            last_result = {"persona": persona, "empresa": {}}
+            citations = []
+
+        class FakeOrch:
+            perplexity_scraper = FakePplx()
+
+        svc.orchestrator = FakeOrch()
+        return svc
+
+    def _result(self) -> ResearchResult:
+        r = ResearchResult()
+        r.persona = {"nombre": "Nadia Ramirez Lara"}
+        r.empresa = {"nombre": "Desert King"}
+        return r
+
+    def test_persona_homonima_de_perplexity_descartada(self):
+        svc = self._svc_with_pplx({
+            "nombre_completo": "Nadia Ramirez Lara",
+            "empresa_actual": "Gobierno de Baja California",
+            "ubicacion": "Mexicali, Baja California, México",
+            "educacion": "UABC",
+        })
+        r = self._result()
+        svc._enrich_from_perplexity(r)
+        assert r.persona.get("ubicacion", "") == ""
+        assert r.persona.get("educacion", "") == ""
+
+    def test_persona_correcta_de_perplexity_se_usa(self):
+        svc = self._svc_with_pplx({
+            "nombre_completo": "Nadia Ramirez Lara",
+            "empresa_actual": "Desert King",
+            "ubicacion": "Valparaíso, Chile",
+        })
+        r = self._result()
+        svc._enrich_from_perplexity(r)
+        assert "Valpara" in r.persona.get("ubicacion", "")
+
+    def test_linkedin_validado_gana_sobre_perplexity(self):
+        # Orden nuevo: scraped items primero, Perplexity solo rellena vacíos
+        svc = self._svc_with_pplx({
+            "nombre_completo": "Nadia Ramirez Lara",
+            "empresa_actual": "Desert King",
+            "ubicacion": "Mexicali, Baja California, México",
+        })
+        r = self._result()
+        ResearchService._enrich_from_scraped_items(svc, r, [_nadia_item()])
+        svc._enrich_from_perplexity(r)
+        assert "Valpara" in r.persona.get("ubicacion", "")
+        assert "Mexicali" not in r.persona.get("ubicacion", "")
+
+
 class TestLinkedInHomonymFallback:
     """El fallback con nombre acortado ('Nadia Ramirez') no debe devolver
     perfiles que no mencionen la empresa NI traigan el nombre completo."""

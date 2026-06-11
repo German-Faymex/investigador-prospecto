@@ -791,6 +791,9 @@ async def test_perplexity_enriches_empty_fields():
         "persona": {
             "nombre_completo": "Henry Zabala Sarmiento",
             "cargo_actual": "Ingeniero de Mantenimiento",
+            # empresa_actual presente = persona correctamente identificada;
+            # sin mención a la empresa, el gate anti-homónimos la descarta
+            "empresa_actual": "Copec",
             "trayectoria": "20 años en energía y combustibles",
             "educacion": "Ingeniero Mecánico, U de Chile",
             "linkedin_url": "https://linkedin.com/in/henry-zabala",
