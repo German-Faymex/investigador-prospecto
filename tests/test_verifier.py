@@ -95,6 +95,30 @@ def test_diverse_sources_verified(verifier):
     assert len(verified) >= 1
 
 
+def test_same_domain_two_engines_not_verified(verifier):
+    """Google y DDG indexando el MISMO perfil de LinkedIn no son 2 fuentes
+    independientes: es la misma página encontrada dos veces → partial, no verified."""
+    items = [
+        _item("https://linkedin.com/in/juan", "Juan Perez Gerente de Operaciones en Minera X", "google_search"),
+        _item("https://www.linkedin.com/in/juan", "Juan Perez Gerente de Operaciones Minera X experiencia", "duckduckgo"),
+    ]
+    facts = verifier.verify(items)
+    assert len(facts) >= 1
+    # Mismo dominio (linkedin.com) → no debe ser "verified"
+    assert all(f.confidence != "verified" for f in facts)
+
+
+def test_perplexity_plus_one_domain_is_verified(verifier):
+    """Perplexity (búsqueda web independiente) + un dominio web distinto = 2 fuentes."""
+    items = [
+        _item("https://news.cl/nota", "Minera X anuncia expansion de su planta en el norte de Chile", "google_news"),
+        _item("https://linkedin.com/in/x", "Minera X expansion planta norte Chile nuevo proyecto minero", "perplexity_empresa"),
+    ]
+    facts = verifier.verify(items)
+    verified = [f for f in facts if f.confidence == "verified"]
+    assert len(verified) >= 1
+
+
 def test_unrelated_snippets_separate_groups(verifier):
     items = [
         _item("https://a.com", "CODELCO anuncia nueva planta de procesamiento en Atacama", "google_search"),

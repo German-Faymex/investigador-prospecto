@@ -2,6 +2,7 @@
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
+from urllib.parse import urlparse
 
 from scraper.base import ScrapedItem
 
@@ -44,6 +45,14 @@ class Verifier:
     """Verifica hechos cruzando datos de múltiples fuentes."""
 
     SIMILARITY_THRESHOLD = 0.25
+
+    @staticmethod
+    def _domain(url: str) -> str:
+        """Dominio normalizado de una URL (sin www), para contar fuentes únicas."""
+        try:
+            return urlparse(url).netloc.replace("www.", "").lower()
+        except Exception:
+            return ""
 
     def verify(self, items: list[ScrapedItem]) -> list[VerifiedFact]:
         """Agrupar snippets similares y asignar confianza según diversidad de fuentes."""
@@ -102,13 +111,25 @@ class Verifier:
             urls = list({it.url for it in group_items if it.url})
             source_names = list({it.source for it in group_items})
 
-            # Confianza basada en diversidad de fuentes (scrapers distintos)
-            unique_sources = len(source_names)
-            has_perplexity = any(s.startswith("perplexity") for s in source_names)
-            if unique_sources >= 2:
+            # Confianza basada en FUENTES INDEPENDIENTES, no en número de
+            # scrapers. Google y DDG que devuelven la MISMA URL/dominio (ej:
+            # ambos indexan el mismo perfil de LinkedIn) NO son dos fuentes:
+            # es la misma página encontrada dos veces. Contamos dominios web
+            # distintos; Perplexity cuenta como una fuente extra (su propia
+            # búsqueda web), aunque su cita sea de un dominio ya contado.
+            non_pplx_domains = {
+                self._domain(it.url)
+                for it in group_items
+                if it.url and not it.source.startswith("perplexity")
+            }
+            non_pplx_domains.discard("")
+            has_perplexity = any(it.source.startswith("perplexity") for it in group_items)
+            independent_sources = len(non_pplx_domains) + (1 if has_perplexity else 0)
+
+            if independent_sources >= 2:
                 confidence = "verified"
-            elif has_perplexity or (unique_sources == 1 and urls):
-                # Perplexity ya hace búsqueda web real → nunca descartar
+            elif independent_sources >= 1:
+                # Una sola fuente real (incluye Perplexity sola) → parcial
                 confidence = "partial"
             else:
                 confidence = "discarded"
