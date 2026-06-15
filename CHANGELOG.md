@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.6.0] - 2026-06-15
+
+### Calidad de atribución: resolución de entidades con LLM + verificación por dominio
+
+**1. Resolución de entidades con LLM antes del análisis (mejora arquitectónica)**
+- La mayor fuente de errores de atribución era que items de homónimos/ruido llegaban al LLM de análisis como "hechos" (5 bugs de ese tipo el 11-jun). La única defensa eran heurísticas regex frágiles.
+- Nueva etapa `_resolve_entities()`: una llamada LLM barata clasifica cada resultado de búsqueda en `prospecto` / `empresa` / `irrelevante` ANTES del análisis. Los irrelevantes (personas homónimas, empresas homónimas, ruido de noticias) se descartan.
+- Corporate (dominio validado) y Perplexity (curado + gate) no se clasifican. Si la llamada falla o no parsea, cae a la heurística `_is_relevant_item` — el pipeline nunca se rompe.
+- Calibración verificada E2E: caso Nadia descarta 20/22 irrelevantes (todas las homónimas + distingue la EMPRESA "Desert King" de la serie de Netflix homónima); caso Noracid solo descarta 3/15 (datos válidos intactos, score 85).
+- Archivos: `prompts/entity_resolver.md` (nuevo), `services/schemas.py` (`ENTITY_RESOLUTION_SCHEMA`), `services/researcher.py`
+- Limpieza colateral: los extractores regex de educación/ubicación recortan ruido de LinkedIn pegado ("172 contactos", "Ubicación:" sin puntuación) — más visible ahora que el perfil propio domina los snippets.
+
+**2. Verifier: confianza por dominios independientes, no por número de scrapers**
+- "2+ fuentes = verified" contaba scrapers distintos, así que Google y DDG devolviendo el MISMO perfil de LinkedIn inflaban una sola página a "verificada por cruce".
+- Ahora la confianza se basa en dominios web distintos; Perplexity cuenta como una fuente independiente extra (su propia búsqueda web) aunque cite un dominio ya contado.
+- Archivos: `services/verifier.py`
+
+**Tests**: 13 nuevos (resolución de entidades + extractores + verifier), 94 total.
+
 ## [1.5.0] - 2026-06-11
 
 ### Confiabilidad: sitio corporativo correcto, JSON garantizado, fallback LLM reparado

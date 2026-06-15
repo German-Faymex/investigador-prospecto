@@ -2,12 +2,32 @@
 
 ## Última actualización: 2026-06-11
 
-## Estado actual — SESIÓN CERRADA (11 jun 2026)
+## Estado actual — SESIÓN 15 jun 2026
 - Branch activo: main, working tree limpio
-- Último commit: 941ce56 (deployado y verificado en producción)
-- 81 tests pasando; CHANGELOG en v1.5.0 (entradas 1, 1b, 1c, 1d, 1e, 2, 3, 4)
-- Nada quedó a medias: todos los fixes de la sesión están commiteados,
-  pusheados, deployados a Railway y verificados E2E contra producción
+- Último commit: fdf4f16 (deployado y verificado en producción)
+- 94 tests pasando; CHANGELOG en v1.6.0
+- Implementadas las mejoras #1 y #2 del backlog (ver abajo)
+
+## Sesión 15 jun 2026 — mejoras #1 y #2 del backlog
+1. **#1 Resolución de entidades con LLM (mejora arquitectónica, commit fdf4f16)** —
+   nueva etapa `_resolve_entities()` clasifica cada resultado de búsqueda en
+   prospecto/empresa/irrelevante con una llamada LLM barata ANTES del análisis.
+   Reemplaza las heurísticas regex como capa PRIMARIA (quedan como fallback si
+   el LLM falla). Corporate/Perplexity no se clasifican. Schema
+   `ENTITY_RESOLUTION_SCHEMA`, prompt `prompts/entity_resolver.md`.
+   Verificado: Nadia descarta 20/22 (distingue empresa "Desert King" de la
+   serie Netflix homónima); Noracid solo 3/15 (no sobre-filtra). Limpieza
+   colateral de extractores regex (ruido "172 contactos").
+2. **#2 Verifier por dominios independientes (commit 0ebbf60)** — la confianza
+   "verified" contaba scrapers distintos; Google+DDG con la misma URL inflaban
+   una sola página. Ahora cuenta dominios web distintos; Perplexity = +1 fuente
+   independiente. `services/verifier.py`.
+
+### Nota sobre #1 vs el backlog
+El backlog decía "reemplaza los filtros regex". Decisión tomada: la resolución
+LLM es la capa PRIMARIA pero las heurísticas (`_is_relevant_item`) quedan como
+FALLBACK ante fallo del LLM (defensa en profundidad, dado el historial de 5 bugs).
+Costo: +1 llamada LLM barata (DeepSeek) por investigación, ~centavos.
 
 ## Resumen ejecutivo de la sesión
 Sesión de confiabilidad: se cerraron 1 bug de infraestructura (modelo LLM
@@ -98,19 +118,16 @@ LLM con las mismas reglas que la UI (_is_relevant_item).
    leer perfiles LinkedIn directo (costo mensual) — único camino para que
    educación/ubicación dejen de depender del snippet DDG de turno.
 
-## Mejoras pendientes propuestas (auditoría 11 jun, en orden)
-1. Resolución de entidades con LLM antes del análisis (reemplaza los filtros regex
-   anti-homónimos/company-pages, la fuente principal de errores de atribución).
-   El caso Noracid/Metso de hoy es el mismo patrón generalizado a todas las fuentes.
-2. Verifier: deduplicar por dominio antes de contar "diversidad de fuentes"
-   (Google+DDG con la misma URL no son 2 fuentes).
-3. Desactivar scraping LinkedIn TLS en producción (999 desde Railway) o evaluar
+## Mejoras pendientes (#1 y #2 HECHAS el 15 jun)
+1. Desactivar scraping LinkedIn TLS en producción (999 desde Railway) o evaluar
    web search server-side de Anthropic como reemplazo de Google/DDG.
-4. Persistencia (SQLite): caché por empresa, historial, feedback de emails.
-5. Score determinístico en código (hoy lo asigna el LLM).
-6. `_fix_email_closing` asume "Quedo atento," (falla con remitente mujer).
-7. Mostrar las citations de Perplexity como fuentes visibles en la UI (hoy su
+2. Persistencia (SQLite): caché por empresa, historial, feedback de emails.
+3. Score determinístico en código (hoy lo asigna el LLM).
+4. `_fix_email_closing` asume "Quedo atento," (falla con remitente mujer).
+5. Mostrar las citations de Perplexity como fuentes visibles en la UI (hoy su
    aporte es invisible y genera la impresión de que no se usa).
+6. Decisión de negocio (Germán): proxy residencial para LinkedIn directo — la
+   completitud de educación/ubicación sigue dependiendo del snippet DDG de turno.
 
 ---
 
