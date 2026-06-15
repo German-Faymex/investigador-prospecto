@@ -86,6 +86,30 @@ RESEARCH_SCHEMA = {
     "additionalProperties": False,
 }
 
+ENTITY_RESOLUTION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "clasificaciones": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "indice": {"type": "integer"},
+                    "categoria": {
+                        "type": "string",
+                        "enum": ["prospecto", "empresa", "irrelevante"],
+                    },
+                    "razon": _STR,
+                },
+                "required": ["indice", "categoria", "razon"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["clasificaciones"],
+    "additionalProperties": False,
+}
+
 EMAIL_SCHEMA = {
     "type": "object",
     "properties": {

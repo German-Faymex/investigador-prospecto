@@ -9,7 +9,11 @@ from scraper.orchestrator import ScraperOrchestrator
 from scraper.base import ScrapedItem
 from services.verifier import Verifier
 from services.llm_client import LLMClient
-from services.schemas import RESEARCH_SCHEMA
+from services.schemas import RESEARCH_SCHEMA, ENTITY_RESOLUTION_SCHEMA
+
+# Fuentes de buscadores con riesgo de homónimos/ruido (se clasifican con LLM).
+# Corporate (dominio validado) y Perplexity (curado + gate) pasan sin clasificar.
+SEARCH_SOURCES = ("duckduckgo", "google_search", "linkedin", "duckduckgo_news", "google_news")
 
 
 PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
@@ -49,21 +53,15 @@ class ResearchService:
             print(f"[Research] Investigando: {name} @ {company}")
             items = await self.orchestrator.search_all(name, company, role, location)
 
-            # 1b. Excluir DEL ANÁLISIS items sin relación con el prospecto.
-            # Antes esto solo se filtraba para la UI: los items de homónimos
-            # llegaban igual al LLM como "hechos" y contaminaban educación/
-            # ubicación (ej: la educación de una Nadia Ramirez de California
-            # atribuida a la Nadia de Desert King Chile).
+            # 1b. Resolución de entidades: clasificar cada resultado de búsqueda
+            # según si corresponde al prospecto/empresa o es ruido (homónimo,
+            # otra empresa). Es la capa PRIMARIA contra contaminación; antes
+            # esto se hacía solo con heurísticas regex y los homónimos llegaban
+            # igual al LLM de análisis como "hechos" (ej: la educación de una
+            # Nadia Ramirez de California atribuida a la Nadia de Desert King).
+            # Si la llamada LLM falla, cae a las heurísticas (_is_relevant_item).
             if items:
-                company_lower = company.lower().strip()
-                name_lower = name.lower().strip()
-                relevant = [
-                    it for it in items
-                    if self._is_relevant_item(it, name_lower, company_lower)
-                ]
-                if len(relevant) != len(items):
-                    print(f"[Research] {len(items) - len(relevant)} items sin relación con el prospecto excluidos del análisis")
-                items = relevant
+                items = await self._resolve_entities(name, company, role, location, items)
 
             if items:
                 # 2. Guardar fuentes raw (filtrar homónimos, fuentes no útiles, noticias irrelevantes)
@@ -513,6 +511,12 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
             matches = re.findall(pattern, text, re.IGNORECASE)
             for match in matches:
                 clean = match.strip().strip("|.,; ")
+                # Cortar ruido pegado cuando el snippet no tiene puntuación entre
+                # campos (ej: "Instituto X Ubicación: Valparaíso 172 contactos").
+                for kw in ("ubicaci", "location", "contacto", "seguidor", "connection", "follower"):
+                    pos = clean.lower().find(kw)
+                    if pos > 3:
+                        clean = clean[:pos].strip().strip("|.,;· ")
                 if not clean or len(clean) <= 3:
                     continue
                 if clean.lower().startswith("ucation"):
@@ -549,6 +553,10 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 loc = match.group(1).strip().strip("|.,; ")
+                # Cortar conteos de LinkedIn pegados: "Valparaíso 172 contactos"
+                cut = re.split(r"\s+\d", loc)[0].strip().strip("|.,;· ")
+                if len(cut) >= 3:
+                    loc = cut
                 if loc and len(loc) >= 3:
                     return loc
 
@@ -590,8 +598,92 @@ NO inventes nada. Responde SOLO con el JSON estructurado."""
             return best
         return ""
 
+    async def _resolve_entities(
+        self, name: str, company: str, role: str, location: str, items: list[ScrapedItem]
+    ) -> list[ScrapedItem]:
+        """Clasificar resultados de búsqueda con LLM antes del análisis.
+
+        Capa primaria contra contaminación por homónimos. Solo clasifica items
+        de buscadores (riesgo de homónimo/ruido); corporate y perplexity pasan
+        sin tocar. Si la llamada falla o no parsea, cae a la heurística
+        `_is_relevant_item` para no romper el pipeline.
+        """
+        safe = [it for it in items if it.source not in SEARCH_SOURCES]
+        candidates = [it for it in items if it.source in SEARCH_SOURCES]
+        if not candidates:
+            return items
+
+        name_lower = name.lower().strip()
+        company_lower = company.lower().strip()
+
+        parsed = None
+        try:
+            system_prompt = self._load_prompt("entity_resolver.md")
+            user_prompt = self._build_entity_resolution_prompt(name, company, role, location, candidates)
+            if system_prompt:
+                resp = await self.llm.complete(system_prompt, user_prompt, json_schema=ENTITY_RESOLUTION_SCHEMA)
+                parsed = self._parse_llm_response(resp.content)
+        except Exception as e:
+            print(f"[Research] Resolución de entidades falló ({e}), usando heurística")
+
+        # Fallback heurístico si el LLM no respondió un JSON válido
+        if not parsed or not isinstance(parsed.get("clasificaciones"), list):
+            kept = [it for it in candidates if self._is_relevant_item(it, name_lower, company_lower)]
+            if len(kept) != len(candidates):
+                print(f"[Research] Resolución (heurística): {len(candidates) - len(kept)}/{len(candidates)} items descartados")
+            return safe + kept
+
+        verdicts: dict[int, str] = {}
+        for c in parsed["clasificaciones"]:
+            idx = c.get("indice")
+            if isinstance(idx, int):
+                verdicts[idx] = c.get("categoria", "prospecto")
+
+        kept = []
+        descartados = 0
+        for i, it in enumerate(candidates):
+            # Default permisivo: si el LLM omitió un índice, conservar (no
+            # perder datos válidos por una omisión del modelo).
+            if verdicts.get(i, "prospecto") == "irrelevante":
+                descartados += 1
+                print(f"[Research] Item irrelevante (LLM): {(it.title or it.url)[:70]}")
+                continue
+            kept.append(it)
+        if descartados:
+            print(f"[Research] Resolución de entidades (LLM): {descartados}/{len(candidates)} items irrelevantes descartados")
+        return safe + kept
+
+    @staticmethod
+    def _build_entity_resolution_prompt(
+        name: str, company: str, role: str, location: str, candidates: list[ScrapedItem]
+    ) -> str:
+        """User prompt con el prospecto y los resultados numerados a clasificar."""
+        lines = [
+            "## Prospecto",
+            f"- Nombre: {name}",
+            f"- Empresa: {company}",
+            f"- Cargo: {role or 'No especificado'}",
+            f"- Ubicacion: {location or 'No especificada'}",
+            "",
+            "## Resultados de búsqueda a clasificar",
+            "",
+        ]
+        for i, it in enumerate(candidates):
+            lines.append(f"[{i}] fuente={it.source} url={it.url}")
+            if it.title:
+                lines.append(f"    título: {it.title}")
+            snippet = (it.snippet or "").strip()
+            if snippet:
+                lines.append(f"    texto: {snippet[:300]}")
+            lines.append("")
+        lines.append(
+            f"Clasifica cada índice de [0] a [{len(candidates) - 1}] en "
+            "prospecto/empresa/irrelevante. Devuelve un objeto por cada índice."
+        )
+        return "\n".join(lines)
+
     def _is_relevant_item(self, it: ScrapedItem, name_lower: str, company_lower: str) -> bool:
-        """Decidir si un item scrapeado corresponde realmente al prospecto.
+        """Heurística de relevancia (FALLBACK de `_resolve_entities`).
 
         Aplica a resultados de buscadores (homónimos) y noticias (irrelevantes).
         Corporate y Perplexity ya vienen validados/curados aguas arriba.
