@@ -1,12 +1,13 @@
 # Investigador de Prospectos — Progreso de Desarrollo
 
-## Última actualización: 2026-06-11
+## Última actualización: 2026-06-15
 
-## Estado actual — SESIÓN 15 jun 2026
+## Estado actual — SESIÓN 15 jun 2026 (CERRADA Y VERIFICADA)
 - Branch activo: main, working tree limpio
-- Último commit: fdf4f16 (deployado y verificado en producción)
+- Último commit: b3be572 (código en fdf4f16, ambos deployados y verificados en prod)
 - 94 tests pasando; CHANGELOG en v1.6.0
-- Implementadas las mejoras #1 y #2 del backlog (ver abajo)
+- Mejoras #1 y #2 del backlog implementadas, deployadas y verificadas E2E en prod
+- Sin bugs abiertos ni trabajo a medias
 
 ## Sesión 15 jun 2026 — mejoras #1 y #2 del backlog
 1. **#1 Resolución de entidades con LLM (mejora arquitectónica, commit fdf4f16)** —
@@ -29,7 +30,24 @@ LLM es la capa PRIMARIA pero las heurísticas (`_is_relevant_item`) quedan como
 FALLBACK ante fallo del LLM (defensa en profundidad, dado el historial de 5 bugs).
 Costo: +1 llamada LLM barata (DeepSeek) por investigación, ~centavos.
 
-## Resumen ejecutivo de la sesión
+### Verificación final + aclaración importante (NO confundir en el futuro)
+- Caso Nadia verificado en prod campo por campo: PERSONA 100% limpia (Valparaíso,
+  ESUCOMEX, LinkedIn `cl.linkedin.com` cuando el snippet lo trae), CERO datos de
+  homónimas de California/Mexicali.
+- **FALSO POSITIVO de "California"**: Desert King International es una empresa REAL
+  fundada en San Diego, California (1978), con operaciones en Chile y México. Por
+  eso "California" aparece legítimamente en `empresa.ubicacion` / `empresa.descripcion`.
+  NO es contaminación. La resolución de entidades distingue la SEDE de la empresa
+  (correcta, se conserva) de los HOMÓNIMOS de la persona (se descartan). Si en una
+  sesión futura ves "California" en un resultado de Desert King, revisa en qué objeto
+  está antes de asumir bug.
+- **Variabilidad de completitud (limitación de fuentes, NO bug)**: educación/ubicación
+  de la persona a veces salen "No disponible" y a veces con datos, según el snippet
+  que DDG devuelva en cada corrida (LinkedIn bloquea lectura directa = 999 desde
+  Railway). Lo GARANTIZADO: nunca datos de otra persona. Lo que VARÍA: el detalle.
+  Solución de fondo = proxy residencial (decisión de negocio, pendiente Germán).
+
+## Resumen ejecutivo — sesión 11 jun 2026
 Sesión de confiabilidad: se cerraron 1 bug de infraestructura (modelo LLM
 retirado), 1 clase de pérdida de datos (JSON por regex) y 5 vectores de
 contaminación por homónimos (empresa equivocada x2, persona equivocada x3),
